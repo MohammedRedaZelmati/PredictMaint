@@ -1,7 +1,8 @@
 """Tests for the FD001 reader and Kafka replay producer (lot A3).
 
 All fixture rows below are SYNTHETIC test data, not NASA measurements. Tests that need
-the real FD001 files are skipped unless data/train_FD001.txt / data/test_FD001.txt exist.
+the real FD001 files are skipped unless data/raw/train_FD001.txt / test_FD001.txt exist
+(location and SHA-256 hashes recorded in docs/data-card.md).
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import pytest
 from ingestion import producer
 from ingestion.dataset_reader import DatasetError, Measurement, read_split, split_path, summary
 
-DATA_DIR = Path("data")
+DATA_DIR = Path("data/raw")
 RUN_ID = "10000000-0000-4000-8000-000000000001"
 
 
@@ -227,7 +228,9 @@ def test_events_match_reda_json_schema(fleet):
     validator = producer.load_contract_validator()
     event = producer.build_event(fleet[1][0], "test", RUN_ID)
     assert validator(event) == []
-    assert validator({**event, "target_rul": 10.0}) or producer.validation_errors({**event, "target_rul": 10.0})
+    assert validator({**event, "target_rul": 10.0})          # additionalProperties: false
+    assert validator({**event, "run_id": "not-a-uuid"})      # format: uuid is enforced
+    assert validator({**event, "event_ts": "2026-01-01T00:01:00+02:00"})  # must be UTC
 
 
 # ------------------------------------------------------------------ real NASA files (when present)
