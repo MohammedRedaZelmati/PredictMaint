@@ -153,7 +153,9 @@ services:
     volumes:
       - ./infra/spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/7077"]
+      # /bin/sh is dash in the Ubuntu-based Spark image: /dev/tcp needs bash.
+      # The master binds to its hostname (--host spark-master), not to localhost.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/spark-master/7077"]
       interval: 10s
       timeout: 5s
       retries: 10
