@@ -150,12 +150,14 @@ def main(argv: list[str] | None = None) -> int:
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
 
-    last_batch = None
+    last_batch = -1
     while query.isActive:
         query.awaitTermination(15)
-        progress = query.lastProgress
-        if progress and progress.get("batchId") != last_batch:
-            last_batch = progress.get("batchId")
+        # recentProgress, not lastProgress: several batches can finish between two polls.
+        for progress in query.recentProgress:
+            if progress.get("batchId", -1) <= last_batch:
+                continue
+            last_batch = progress["batchId"]
             metrics = (progress.get("observedMetrics") or {}).get(QUALITY_METRICS) or {}
             print(f"[inference_v1] {json.dumps({'batch': last_batch, 'input_rows': progress.get('numInputRows'), 'received': metrics.get('received'), 'rejected': metrics.get('rejected')})}",
                   flush=True)
