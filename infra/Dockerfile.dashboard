@@ -1,0 +1,10 @@
+# PROVISIONAL: owned by Ayman, dependencies to be confirmed by Reda (dashboard/ is his).
+# Reads PostgreSQL only; refresh every 5 s is implemented in dashboard/app.py.
+FROM python:3.11-slim
+
+WORKDIR /app
+RUN pip install --no-cache-dir streamlit==1.39.0 psycopg2-binary==2.9.9 pandas==2.2.3
+COPY dashboard/ /app/dashboard/
+
+EXPOSE 8501
+CMD ["streamlit", "run", "dashboard/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
