@@ -114,7 +114,12 @@ def load_contract_validator(path: Path = CONTRACT_SCHEMA) -> Callable[[dict], li
         return None
     import jsonschema
 
-    validator = jsonschema.Draft202012Validator(json.loads(path.read_text(encoding="utf-8")))
+    # Reda's schema relies on `format: uuid` / `date-time`: enable format assertions
+    # (date-time needs rfc3339-validator installed, which the Spark image provides).
+    validator = jsonschema.Draft202012Validator(
+        json.loads(path.read_text(encoding="utf-8")),
+        format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER,
+    )
     return lambda event: [error.message for error in validator.iter_errors(event)]
 
 
@@ -245,7 +250,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--speed", required=True, type=float, help="simulated cycles per second; 0 = no pacing")
     parser.add_argument("--run-id", type=parse_run_id, help="reuse a session UUID (deliberate resume); default: new UUID")
     parser.add_argument("--engine-ids", type=parse_engine_ids, help="e.g. 1,2,3; default: all engines of the split")
-    parser.add_argument("--data-dir", type=Path, default=Path(os.environ.get("FD001_DATA_DIR", "data")))
+    # data/raw/ is where docs/data-card.md (Reda) keeps the verified NASA files.
+    parser.add_argument("--data-dir", type=Path, default=Path(os.environ.get("FD001_DATA_DIR", "data/raw")))
     parser.add_argument("--bootstrap-servers", default=os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:29092"))
     parser.add_argument("--topic", default=os.environ.get("KAFKA_TOPIC", TOPIC))
     parser.add_argument("--event-origin", type=datetime.fromisoformat, default=DEFAULT_EVENT_ORIGIN,
