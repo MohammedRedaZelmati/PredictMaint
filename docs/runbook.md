@@ -91,3 +91,23 @@ FROM parquet.`hdfs://namenode:8020/smartpredict/bronze/engine_events/` GROUP BY 
 
 Spark tests: `docker compose run --rm spark-client python3 -m pytest tests/test_streaming_sink.py`
 (needs pytest in the image or `pip install --user pytest` in the container).
+
+## Hot path: Kafka -> Spark ML -> PostgreSQL (lot A5)
+
+Prerequisites (Reda): `contracts/feature_columns.json`, `database/schema.sql` applied by bootstrap,
+`hdfs://namenode:8020/smartpredict/models/rul_pipeline/v001/` and `.../models/metadata/v001/manifest.json`.
+
+```powershell
+docker compose --profile jobs up -d spark-inference          # FIRST: fresh checkpoint reads from `latest`
+docker compose logs -f spark-inference                       # wait for "model=... features=25"
+docker compose run --rm spark-client bash scripts/run_test_replay.sh --engine-ids 1,2,3
+```
+
+Start-up refuses to run (exit 3, explicit message) if the manifest's `schema_version`, `model_version`,
+`model_hdfs_uri`, `target_cap_cycles` or `feature_schema_hash` (SHA-256 of the compact JSON list of the
+25 features) does not match. No fallback model, no heuristic.
+
+Per micro-batch: validate events, drop duplicates of `(run_id, event_id)`, `model.transform()` on the
+executors, clamp to [0, 125], status CRITICAL <= 20 < WARNING <= 50 < HEALTHY, `predicted_at` = scoring time,
+UPSERT from `foreachPartition` (psycopg2, one transaction per partition, 3 attempts). A NULL/NaN prediction or
+a database error fails the micro-batch, and Spark retries it from checkpoint `inference_v1`.
