@@ -1,0 +1,31 @@
+# Common image for Spark master, workers, client and streaming jobs.
+# Base tag is contractual (docs/guides/00_CONTRATS_COMMUNS.md section 1); availability
+# must be confirmed with `docker compose pull`/`build` and logged in docs/runtime-lock.md.
+FROM apache/spark:3.5.3-scala2.12-java17-python3-ubuntu
+
+USER root
+
+# Kafka source + PostgreSQL JDBC baked into the image so workers and drivers need no
+# network at run time (no --packages / ivy cache). Versions follow Spark 3.5.3's own
+# dependency set (kafka-clients 3.4.1, commons-pool2 2.11.1).
+ARG MAVEN=https://repo1.maven.org/maven2
+ADD ${MAVEN}/org/apache/spark/spark-sql-kafka-0-10_2.12/3.5.3/spark-sql-kafka-0-10_2.12-3.5.3.jar /opt/spark/jars/
+ADD ${MAVEN}/org/apache/spark/spark-token-provider-kafka-0-10_2.12/3.5.3/spark-token-provider-kafka-0-10_2.12-3.5.3.jar /opt/spark/jars/
+ADD ${MAVEN}/org/apache/kafka/kafka-clients/3.4.1/kafka-clients-3.4.1.jar /opt/spark/jars/
+ADD ${MAVEN}/org/apache/commons/commons-pool2/2.11.1/commons-pool2-2.11.1.jar /opt/spark/jars/
+ADD ${MAVEN}/org/postgresql/postgresql/42.7.4/postgresql-42.7.4.jar /opt/spark/jars/
+RUN chmod 644 /opt/spark/jars/spark-sql-kafka-0-10_2.12-3.5.3.jar \
+              /opt/spark/jars/spark-token-provider-kafka-0-10_2.12-3.5.3.jar \
+              /opt/spark/jars/kafka-clients-3.4.1.jar \
+              /opt/spark/jars/commons-pool2-2.11.1.jar \
+              /opt/spark/jars/postgresql-42.7.4.jar
+
+# Python deps for jobs: numpy (needed by pyspark.ml), producer client, PostgreSQL driver.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3-pip \
+ && pip3 install --no-cache-dir numpy==1.26.4 kafka-python-ng==2.2.3 psycopg2-binary==2.9.9 \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Back to the image's unprivileged Spark user.
+USER spark
+WORKDIR /opt/smartpredict

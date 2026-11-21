@@ -1,0 +1,333 @@
+# SmartPredict V1 cluster (simulated in containers on one host).
+# Contract: docs/guides/00_CONTRATS_COMMUNS.md (sections 1, 3, 8).
+# Status: written under the RAM gate (< 3.5 GiB free) -- `docker compose config`
+# validated only. See docs/runtime-lock.md for what is verified and what is not.
+
+name: smartpredict
+
+x-spark-image: &spark-image
+  image: smartpredict/spark:3.5.3
+  build:
+    context: .
+    dockerfile: infra/Dockerfile.spark
+
+x-hadoop-env: &hadoop-env
+  # Official apache/hadoop image: run daemons directly as root inside the container.
+  HDFS_NAMENODE_USER: root
+  HDFS_DATANODE_USER: root
+  HDFS_SECONDARYNAMENODE_USER: root
+
+x-spark-job: &spark-job
+  <<: *spark-image
+  working_dir: /opt/smartpredict
+  volumes:
+    - .:/opt/smartpredict
+    - ./infra/spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+  environment:
+    PYTHONPATH: /opt/smartpredict
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_DB: ${POSTGRES_DB:-smartpredict}
+    POSTGRES_USER: ${POSTGRES_USER:-smartpredict}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-locally}
+    KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    KAFKA_TOPIC: engine.measurements.v1
+  networks: [smartpredict_net]
+
+services:
+  # ---------------------------------------------------------------- Kafka (KRaft)
+  kafka:
+    image: apache/kafka:3.8.1
+    container_name: kafka
+    hostname: kafka
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:29092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # Retention long enough to survive demo pauses and job restarts (7 days).
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 15s
+      retries: 10
+      start_period: 30s
+    networks: [smartpredict_net]
+
+  # ---------------------------------------------------------------- HDFS
+  namenode:
+    image: apache/hadoop:3.3.6
+    container_name: namenode
+    hostname: namenode
+    user: root
+    command:
+      - bash
+      - -c
+      - '[ -d /hadoop/dfs/name/current ] || hdfs namenode -format -nonInteractive; exec hdfs namenode'
+    ports:
+      - "9870:9870"
+    environment:
+      <<: *hadoop-env
+      HADOOP_HEAPSIZE_MAX: 512m
+    volumes:
+      - hdfs_nn_data:/hadoop/dfs/name
+      - ./infra/hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./infra/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8020"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    networks: [smartpredict_net]
+
+  datanode-1:
+    image: apache/hadoop:3.3.6
+    container_name: datanode-1
+    hostname: datanode-1
+    user: root
+    command: ["hdfs", "datanode"]
+    environment:
+      <<: *hadoop-env
+      HADOOP_HEAPSIZE_MAX: 384m
+    volumes:
+      - hdfs_dn1_data:/hadoop/dfs/data
+      - ./infra/hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./infra/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+    depends_on:
+      namenode:
+        condition: service_healthy
+    networks: [smartpredict_net]
+
+  datanode-2:
+    image: apache/hadoop:3.3.6
+    container_name: datanode-2
+    hostname: datanode-2
+    user: root
+    command: ["hdfs", "datanode"]
+    environment:
+      <<: *hadoop-env
+      HADOOP_HEAPSIZE_MAX: 384m
+    volumes:
+      - hdfs_dn2_data:/hadoop/dfs/data
+      - ./infra/hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./infra/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+    depends_on:
+      namenode:
+        condition: service_healthy
+    networks: [smartpredict_net]
+
+  # ---------------------------------------------------------------- Spark standalone
+  spark-master:
+    <<: *spark-image
+    container_name: spark-master
+    hostname: spark-master
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.master.Master
+      - --host
+      - spark-master
+      - --port
+      - "7077"
+      - --webui-port
+      - "8080"
+    ports:
+      - "8080:8080"
+    environment:
+      SPARK_DAEMON_MEMORY: 384m
+    volumes:
+      - ./infra/spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+    healthcheck:
+      # /bin/sh is dash in the Ubuntu-based Spark image: /dev/tcp needs bash.
+      # The master binds to its hostname (--host spark-master), not to localhost.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/spark-master/7077"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks: [smartpredict_net]
+
+  spark-worker-1:
+    <<: *spark-image
+    container_name: spark-worker-1
+    hostname: spark-worker-1
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - spark://spark-master:7077
+      - --cores
+      - ${SPARK_WORKER_CORES:-2}
+      - --memory
+      - ${SPARK_WORKER_MEMORY:-1g}
+      - --webui-port
+      - "8081"
+    ports:
+      - "8081:8081"
+    environment:
+      SPARK_DAEMON_MEMORY: 256m
+      PYTHONPATH: /opt/smartpredict
+    volumes:
+      - .:/opt/smartpredict:ro
+      - ./infra/spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    networks: [smartpredict_net]
+
+  spark-worker-2:
+    <<: *spark-image
+    container_name: spark-worker-2
+    hostname: spark-worker-2
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - spark://spark-master:7077
+      - --cores
+      - ${SPARK_WORKER_CORES:-2}
+      - --memory
+      - ${SPARK_WORKER_MEMORY:-1g}
+      - --webui-port
+      - "8082"
+    ports:
+      - "8082:8082"
+    environment:
+      SPARK_DAEMON_MEMORY: 256m
+      PYTHONPATH: /opt/smartpredict
+    volumes:
+      - .:/opt/smartpredict:ro
+      - ./infra/spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    networks: [smartpredict_net]
+
+  # ---------------------------------------------------------------- PostgreSQL
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    hostname: postgres
+    ports:
+      # Host port is configurable: 5432 is often taken by a local PostgreSQL.
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-smartpredict}
+      POSTGRES_USER: ${POSTGRES_USER:-smartpredict}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-locally}
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=30"]
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [smartpredict_net]
+
+  # ---------------------------------------------------------------- Spark job runners
+  # One-shot client: docker compose run --rm spark-client bash scripts/bootstrap.sh
+  spark-client:
+    <<: *spark-job
+    container_name: spark-client
+    hostname: spark-client
+    profiles: ["tools"]
+    command: ["bash"]
+    depends_on:
+      kafka: {condition: service_healthy}
+      namenode: {condition: service_healthy}
+      spark-master: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+
+  # Cold path: Kafka -> Parquet on HDFS (checkpoint archive_v1). Script written in lot A4.
+  spark-archive:
+    <<: *spark-job
+    container_name: spark-archive
+    hostname: spark-archive
+    profiles: ["jobs"]
+    command:
+      - /opt/spark/bin/spark-submit
+      - --master
+      - spark://spark-master:7077
+      - --conf
+      - spark.driver.host=spark-archive
+      - --conf
+      - spark.driver.port=7078
+      - --conf
+      - spark.blockManager.port=7079
+      - streaming/archive.py
+    restart: on-failure
+    depends_on:
+      kafka: {condition: service_healthy}
+      namenode: {condition: service_healthy}
+      spark-master: {condition: service_healthy}
+
+  # Hot path: Kafka -> Spark ML PipelineModel -> PostgreSQL (checkpoint inference_v1). Lot A5.
+  spark-inference:
+    <<: *spark-job
+    container_name: spark-inference
+    hostname: spark-inference
+    profiles: ["jobs"]
+    command:
+      - /opt/spark/bin/spark-submit
+      - --master
+      - spark://spark-master:7077
+      - --conf
+      - spark.driver.host=spark-inference
+      - --conf
+      - spark.driver.port=7088
+      - --conf
+      - spark.blockManager.port=7089
+      - streaming/inference.py
+      - --model-version
+      - ${MODEL_VERSION:-v001}
+    restart: on-failure
+    depends_on:
+      kafka: {condition: service_healthy}
+      namenode: {condition: service_healthy}
+      spark-master: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+
+  # ---------------------------------------------------------------- Dashboard (Reda's source)
+  dashboard:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.dashboard
+    container_name: dashboard
+    hostname: dashboard
+    profiles: ["dashboard"]
+    ports:
+      - "8501:8501"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-smartpredict}
+      POSTGRES_USER: ${POSTGRES_USER:-smartpredict}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-locally}
+    depends_on:
+      postgres: {condition: service_healthy}
+    networks: [smartpredict_net]
+
+networks:
+  smartpredict_net:
+    name: smartpredict_net
+
+volumes:
+  hdfs_nn_data:
+  hdfs_dn1_data:
+  hdfs_dn2_data:
+  kafka_data:
+  pg_data:
