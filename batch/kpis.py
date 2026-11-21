@@ -14,6 +14,7 @@ def compute_kpis(spark, bronze, silver):
     from pyspark.sql import functions as F
 
     logical = deduplicate_bronze(bronze)
+    bronze.createOrReplaceTempView("fd001_bronze")
     logical.createOrReplaceTempView("fd001_logical")
     silver.createOrReplaceTempView("fd001_silver")
 
@@ -47,13 +48,13 @@ def compute_kpis(spark, bronze, silver):
            SELECT 'trajectory_max_cycles', 'all', 'all', CAST(MAX(length) AS DOUBLE) FROM lengths""",
         """SELECT 'quality_error_count' metric_name, 'all' dimension_name,
                   'all' dimension_value,
-                  CAST(SUM(CASE WHEN engine_id < 1 OR cycle < 1 THEN 1 ELSE 0 END) AS DOUBLE) metric_value
-           FROM fd001_logical""",
-        """SELECT 'train_engines_by_rul_band' metric_name, 'rul_band' dimension_name,
+                  CAST((SELECT COUNT(*) FROM fd001_bronze) -
+                       (SELECT COUNT(*) FROM fd001_logical) AS DOUBLE) metric_value""",
+        """SELECT 'train_cycles_by_rul_band' metric_name, 'rul_band' dimension_name,
                   CASE WHEN target_rul <= 20 THEN '0-20'
                        WHEN target_rul <= 50 THEN '21-50'
                        ELSE '51-125' END dimension_value,
-                  CAST(COUNT(DISTINCT engine_id) AS DOUBLE) metric_value
+                  CAST(COUNT(*) AS DOUBLE) metric_value
            FROM fd001_silver GROUP BY
                   CASE WHEN target_rul <= 20 THEN '0-20'
                        WHEN target_rul <= 50 THEN '21-50'
@@ -66,18 +67,19 @@ def compute_kpis(spark, bronze, silver):
         f"""SELECT 'missing_value_pct' metric_name, 'all' dimension_name,
                    'all' dimension_value,
                    CAST(100.0 * ({missing_terms}) / (COUNT(*) * {len(MEASUREMENT_COLUMNS)}) AS DOUBLE) metric_value
-            FROM fd001_logical"""
+            FROM fd001_bronze"""
     )
-    for sensor in MEASUREMENT_COLUMNS[3:8]:
-        queries.append(f"""SELECT '{sensor}_mean' metric_name, 'cycle_band' dimension_name,
-                      CAST(FLOOR((cycle-1)/50)*50+1 AS STRING) dimension_value,
+    # These five FD001 sensors vary across trajectories; include split in each band.
+    for sensor in ("sensor_02", "sensor_04", "sensor_07", "sensor_11", "sensor_12"):
+        queries.append(f"""SELECT '{sensor}_mean' metric_name, 'split_cycle_band' dimension_name,
+                      CONCAT(source_split, ':', CAST(FLOOR((cycle-1)/50)*50+1 AS STRING)) dimension_value,
                       AVG({sensor}) metric_value
-               FROM fd001_logical GROUP BY FLOOR((cycle-1)/50)
+               FROM fd001_logical GROUP BY source_split, FLOOR((cycle-1)/50)
                UNION ALL
-               SELECT '{sensor}_stddev', 'cycle_band',
-                      CAST(FLOOR((cycle-1)/50)*50+1 AS STRING),
+               SELECT '{sensor}_stddev', 'split_cycle_band',
+                      CONCAT(source_split, ':', CAST(FLOOR((cycle-1)/50)*50+1 AS STRING)),
                       stddev_pop({sensor})
-               FROM fd001_logical GROUP BY FLOOR((cycle-1)/50)""")
+               FROM fd001_logical GROUP BY source_split, FLOOR((cycle-1)/50)""")
 
     frames = [spark.sql(query) for query in queries]
     result = frames[0]
