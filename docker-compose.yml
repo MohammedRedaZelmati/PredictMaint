@@ -171,7 +171,7 @@ services:
       - org.apache.spark.deploy.worker.Worker
       - spark://spark-master:7077
       - --cores
-      - ${SPARK_WORKER_CORES:-1}
+      - ${SPARK_WORKER_CORES:-2}
       - --memory
       - ${SPARK_WORKER_MEMORY:-1g}
       - --webui-port
@@ -198,7 +198,7 @@ services:
       - org.apache.spark.deploy.worker.Worker
       - spark://spark-master:7077
       - --cores
-      - ${SPARK_WORKER_CORES:-1}
+      - ${SPARK_WORKER_CORES:-2}
       - --memory
       - ${SPARK_WORKER_MEMORY:-1g}
       - --webui-port
