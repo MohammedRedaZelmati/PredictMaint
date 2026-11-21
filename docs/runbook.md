@@ -31,3 +31,17 @@ bash infra/healthchecks/check_cluster.sh
 ```
 
 UIs: Spark `http://localhost:8080`, HDFS `http://localhost:9870`.
+
+## Bootstrap (lot A2, idempotent)
+
+```powershell
+docker compose run --rm spark-client bash scripts/bootstrap.sh            # topic + HDFS dirs + SQL schema if present
+docker compose run --rm spark-client bash scripts/bootstrap.sh --strict   # fail if Reda's database/schema.sql is missing
+python infra/bootstrap.py --dry-run                                       # print plan, contact nothing
+```
+
+Creates only what is missing: topic `engine.measurements.v1` (3 partitions, replication 1),
+`/smartpredict/{bronze/engine_events,silver/train_labeled,gold/batch_kpis,reference/test_rul,models/rul_pipeline,models/metadata,checkpoints}`,
+and applies `database/schema.sql` (Reda's, `CREATE ... IF NOT EXISTS`). A second run only re-checks.
+It never deletes a topic, a directory, a checkpoint or a row. It warns if HDFS has fewer than 2 live DataNodes.
+Kafka uses kafka-python-ng's admin client, HDFS uses WebHDFS on `namenode:9870`, so no extra CLI is needed in the image.
