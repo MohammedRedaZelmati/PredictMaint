@@ -16,6 +16,8 @@ La page du miroir demande de créditer le dépôt et les donateurs dans les publ
 
 Chaque ligne train/test a 26 champs : identifiant moteur, cycle, trois réglages et 21 capteurs. Le RUL est mesuré en cycles et plafonné à 125. Le RUL train est `min(125, dernier_cycle_train - cycle)`. Le RUL test terminal provient exclusivement de `RUL_FD001.txt`, plafonné à 125. Les horodatages des événements Kafka sont simulés ; ils ne représentent pas des dates de mesure NASA.
 
+Les cycles de chaque moteur téléchargé commencent à 1 et sont consécutifs. Les derniers cycles train vont de 128 à 362, ceux du test de 31 à 303. Les 100 RUL terminaux officiels vont de 7 à 145 ; 11 valeurs dépassent le plafond de 125 cycles retenu pour la cible.
+
 ## Vérifications locales
 
 | Élément | Résultat |
