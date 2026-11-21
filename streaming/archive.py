@@ -110,13 +110,14 @@ def main(argv: list[str] | None = None) -> int:
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
 
-    last_batch = None
+    last_batch = -1
     while query.isActive:
         query.awaitTermination(15)
-        progress = query.lastProgress
-        if progress and progress.get("batchId") != last_batch:
-            last_batch = progress.get("batchId")
-            report(progress)
+        # recentProgress, not lastProgress: several batches can finish between two polls.
+        for progress in query.recentProgress:
+            if progress.get("batchId", -1) > last_batch:
+                last_batch = progress["batchId"]
+                report(progress)
 
     error = query.exception()
     if error is not None:
