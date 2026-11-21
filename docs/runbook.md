@@ -45,3 +45,49 @@ Creates only what is missing: topic `engine.measurements.v1` (3 partitions, repl
 and applies `database/schema.sql` (Reda's, `CREATE ... IF NOT EXISTS`). A second run only re-checks.
 It never deletes a topic, a directory, a checkpoint or a row. It warns if HDFS has fewer than 2 live DataNodes.
 Kafka uses kafka-python-ng's admin client, HDFS uses WebHDFS on `namenode:9870`, so no extra CLI is needed in the image.
+
+## Dataset files (not in Git)
+
+Put the official NASA C-MAPSS files in `data/` (git-ignored): `train_FD001.txt`, `test_FD001.txt`
+(and `RUL_FD001.txt`, which the producer never reads). Inside containers the repo is mounted at
+`/opt/smartpredict`, so `data/` is visible there too.
+
+## Producer (lot A3)
+
+```powershell
+python -m ingestion.producer --split test --speed 0 --engine-ids 1 --limit 3 --dry-run   # print, no Kafka
+docker compose run --rm spark-client bash scripts/run_train_replay.sh --engine-ids 1,2,3  # smoke first
+docker compose run --rm spark-client bash scripts/run_train_replay.sh                     # full train replay
+docker compose run --rm spark-client bash scripts/run_test_replay.sh --run-id <uuid>      # deliberate resume
+```
+
+- `--speed` = simulated cycles per second (each step sends one event per engine still running); 0 = no pacing.
+- Order: cycle-major across engines, so each engine's events stay in cycle order; Kafka key
+  `fd001:<split>:<engine_id>` pins an engine to one partition; `max_in_flight=1` keeps order on retry.
+- `event_ts` = 2026-01-01T00:00:00Z + cycle x 60 s (simulated, override with `--event-origin`);
+  `published_at` = real send time. No RUL or label field is ever sent.
+- Invalid events are rejected before sending; exit code 1 if anything was rejected or not acknowledged.
+- When Reda's `contracts/event.schema.json` exists, every event is also validated against it.
+
+## Cold path: Kafka -> Bronze Parquet (lot A4)
+
+```powershell
+docker compose --profile jobs up -d spark-archive      # start BEFORE the train replay
+docker compose logs -f spark-archive                   # per-batch received / rejected counts
+```
+
+Output `hdfs://namenode:8020/smartpredict/bronze/engine_events/source_split=<train|test>/`,
+checkpoint `.../checkpoints/archive_v1/` (exclusive: never run two archive instances, never delete it).
+Columns: every contract field (`event_ts`, `published_at` as timestamps) + `kafka_key`, `kafka_topic`,
+`kafka_partition`, `kafka_offset`, `kafka_timestamp`, `ingested_at`. Bronze is append-only:
+a replay appends the same `event_id`s again; Silver deduplicates on `(source_split, engine_id, cycle)`.
+
+Logical count check for Reda (Spark SQL, from `spark-client`):
+
+```sql
+SELECT source_split, COUNT(*) AS rows, COUNT(DISTINCT event_id) AS logical_rows
+FROM parquet.`hdfs://namenode:8020/smartpredict/bronze/engine_events/` GROUP BY source_split;
+```
+
+Spark tests: `docker compose run --rm spark-client python3 -m pytest tests/test_streaming_sink.py`
+(needs pytest in the image or `pip install --user pytest` in the container).
