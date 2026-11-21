@@ -6,6 +6,7 @@ import hashlib
 import io
 import itertools
 import json
+import os
 import random
 import time
 from datetime import datetime, timezone
@@ -187,6 +188,45 @@ def train_and_export(spark, silver, version):
     return manifest, comparison
 
 
+def publish_model_registry(spark):
+    """Upsert the frozen model metadata after training or on a safe retry."""
+    import psycopg2
+
+    manifest = json.loads("\n".join(
+        row.value for row in spark.read.text(f"{METADATA_URI}manifest.json").collect()
+    ))
+    metrics = json.loads("\n".join(
+        row.value for row in spark.read.text(f"{METADATA_URI}metrics.json").collect()
+    ))
+    connection = psycopg2.connect(
+        host=os.environ["POSTGRES_HOST"],
+        port=os.environ.get("POSTGRES_PORT", "5432"),
+        dbname=os.environ["POSTGRES_DB"],
+        user=os.environ["POSTGRES_USER"],
+        password=os.environ["POSTGRES_PASSWORD"],
+    )
+    try:
+        with connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """INSERT INTO model_registry
+                       (model_version, model_hdfs_uri, feature_schema_hash, algorithm,
+                        validation_rmse, test_rmse)
+                       VALUES (%s, %s, %s, %s, %s, %s)
+                       ON CONFLICT (model_version) DO UPDATE SET
+                         model_hdfs_uri = EXCLUDED.model_hdfs_uri,
+                         feature_schema_hash = EXCLUDED.feature_schema_hash,
+                         algorithm = EXCLUDED.algorithm,
+                         validation_rmse = EXCLUDED.validation_rmse,
+                         test_rmse = EXCLUDED.test_rmse""",
+                    (manifest["model_version"], manifest["model_hdfs_uri"],
+                     manifest["feature_schema_hash"], manifest["algorithm"],
+                     metrics["validation_rmse"], metrics.get("test_rmse")),
+                )
+    finally:
+        connection.close()
+
+
 def main():
     from pyspark.ml import PipelineModel
     from pyspark.sql import SparkSession
@@ -195,10 +235,16 @@ def main():
     parser.add_argument("--version", default="v001")
     parser.add_argument("--silver-uri", default=SILVER_URI)
     parser.add_argument("--verify-only", action="store_true")
+    parser.add_argument("--publish-registry-only", action="store_true")
     args = parser.parse_args()
     spark = SparkSession.builder.appName("smartpredict-fd001-train").getOrCreate()
     if spark.sparkContext.master != "spark://spark-master:7077":
         raise RuntimeError("Submit train_models.py to spark://spark-master:7077")
+    if args.publish_registry_only:
+        publish_model_registry(spark)
+        print("Published model v001 metadata to PostgreSQL")
+        spark.stop()
+        return
     silver = spark.read.parquet(args.silver_uri)
     if args.verify_only:
         model = PipelineModel.load(MODEL_URI)
@@ -209,6 +255,7 @@ def main():
         spark.stop()
         return
     manifest, _ = train_and_export(spark, silver, args.version)
+    publish_model_registry(spark)
     print(f"Saved {manifest['algorithm']} pipeline at {manifest['model_hdfs_uri']}")
     spark.stop()
 

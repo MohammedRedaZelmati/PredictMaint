@@ -7,7 +7,7 @@ import io
 import json
 from pathlib import Path
 
-from batch.train_models import METADATA_URI, MODEL_URI, write_hdfs_text
+from batch.train_models import METADATA_URI, MODEL_URI, publish_model_registry, write_hdfs_text
 
 
 BRONZE_URI = "hdfs://namenode:8020/smartpredict/bronze/engine_events/"
@@ -82,6 +82,7 @@ def evaluate_official(spark, bronze):
     # A retry after a failed metrics write replaces the same frozen-model CSV.
     write_hdfs_text(spark, f"{METADATA_URI}predictions_test.csv", buffer.getvalue(), overwrite=True)
     write_hdfs_text(spark, metadata_path, json.dumps(existing, indent=2), overwrite=True)
+    publish_model_registry(spark)
     return metrics
 
 
