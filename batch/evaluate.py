@@ -22,7 +22,7 @@ def stage_official_rul(spark, local_path):
     labels = [int(line) for line in raw.decode("utf-8").splitlines() if line.strip()]
     if len(labels) != 100 or min(labels) < 1:
         raise ValueError("Expected 100 positive official RUL labels")
-    write_hdfs_text(spark, REFERENCE_URI, raw.decode("utf-8"))
+    write_hdfs_text(spark, REFERENCE_URI, raw.decode("utf-8"), overwrite=True)
 
 
 def evaluate_official(spark, bronze):
@@ -79,7 +79,8 @@ def evaluate_official(spark, bronze):
                      "raw_prediction", "predicted_rul_cycles"))
     for row in rows:
         writer.writerow(tuple(row))
-    write_hdfs_text(spark, f"{METADATA_URI}predictions_test.csv", buffer.getvalue())
+    # A retry after a failed metrics write replaces the same frozen-model CSV.
+    write_hdfs_text(spark, f"{METADATA_URI}predictions_test.csv", buffer.getvalue(), overwrite=True)
     write_hdfs_text(spark, metadata_path, json.dumps(existing, indent=2), overwrite=True)
     return metrics
 
