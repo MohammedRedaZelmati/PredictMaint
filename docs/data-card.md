@@ -29,6 +29,6 @@ Les cycles de chaque moteur téléchargé commencent à 1 et sont consécutifs. 
 | Champs par ligne RUL | 1 pour chaque ligne |
 | Valeurs numériques | Toutes finies |
 
-La vérification a lu les fichiers décompressés, compté les lignes non vides et les identifiants moteur, puis contrôlé le nombre de champs et la finitude de chaque valeur. Les contrôles HDFS Bronze et Silver restent à exécuter après l'archivage d'Ayman.
+La vérification locale de Reda a lu les fichiers décompressés, compté les lignes non vides et les identifiants moteur, puis contrôlé le nombre de champs et la finitude de chaque valeur. Ayman a ensuite rapporté une exécution sur son cluster : Bronze train 20 631 lignes logiques et Silver train 20 631 lignes. Cette lecture HDFS n'a pas été répétée sur le PC de Reda ; voir `docs/validation-matrix.md` pour la provenance des preuves.
 
 Le split validation se fait par moteurs train disjoints du fit. Les 100 moteurs test officiels ne participent ni à la sélection du modèle ni au réglage de ses paramètres. Les features excluent identifiants, timestamps, RUL et maximum futur de cycle.
