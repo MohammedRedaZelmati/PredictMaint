@@ -179,16 +179,19 @@ def main(argv: list[str] | None = None) -> int:
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
 
-    last_batch = -1
+    last_seen = (-1, False)
     while query.isActive:
         query.awaitTermination(15)
         # recentProgress, not lastProgress: several batches can finish between two polls.
+        # An idle trigger reports the NEXT batchId with 0 rows, before the data batch with the
+        # same id, so the key also orders "has rows" after "idle".
         for progress in query.recentProgress:
-            if progress.get("batchId", -1) <= last_batch:
+            seen = (progress.get("batchId", -1), (progress.get("numInputRows") or 0) > 0)
+            if seen <= last_seen:
                 continue
-            last_batch = progress["batchId"]
+            last_seen = seen
             metrics = (progress.get("observedMetrics") or {}).get(QUALITY_METRICS) or {}
-            print(f"[inference_v1] {json.dumps({'batch': last_batch, 'input_rows': progress.get('numInputRows'), 'received': metrics.get('received'), 'rejected': metrics.get('rejected')})}",
+            print(f"[inference_v1] {json.dumps({'batch': seen[0], 'input_rows': progress.get('numInputRows'), 'received': metrics.get('received'), 'rejected': metrics.get('rejected')})}",
                   flush=True)
 
     error = query.exception()
