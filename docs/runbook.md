@@ -1,6 +1,7 @@
-# Runbook (infra, in progress)
+# Runbook (infra, ingestion, streaming)
 
-Only commands that exist today. Later lots (bootstrap, producer, archive, inference) extend this file.
+Commands for Ayman's lots A1-A5, as run on the cluster on 2026-11-21/22. The full launch order with
+Reda's batch, ML and dashboard steps is in the top-level `README.md`.
 
 ## Before any heavy command: RAM check (PowerShell)
 
@@ -48,9 +49,10 @@ Kafka uses kafka-python-ng's admin client, HDFS uses WebHDFS on `namenode:9870`,
 
 ## Dataset files (not in Git)
 
-Put the official NASA C-MAPSS files in `data/` (git-ignored): `train_FD001.txt`, `test_FD001.txt`
-(and `RUL_FD001.txt`, which the producer never reads). Inside containers the repo is mounted at
-`/opt/smartpredict`, so `data/` is visible there too.
+Put the official NASA C-MAPSS files in `data/raw/` (git-ignored): `train_FD001.txt`, `test_FD001.txt`
+and `RUL_FD001.txt` (used only by `scripts/run_evaluate.sh`; the producer never reads it). Hashes are in
+`docs/data-card.md`. Inside containers the repo is mounted at `/opt/smartpredict`, so `data/raw/` is
+visible there too.
 
 ## Producer (lot A3)
 
@@ -89,8 +91,17 @@ SELECT source_split, COUNT(*) AS rows, COUNT(DISTINCT event_id) AS logical_rows
 FROM parquet.`hdfs://namenode:8020/smartpredict/bronze/engine_events/` GROUP BY source_split;
 ```
 
-Spark tests: `docker compose run --rm spark-client python3 -m pytest tests/test_streaming_sink.py`
-(needs pytest in the image or `pip install --user pytest` in the container).
+Each message must carry exactly the 33 contract fields: an extra key (even with a `null` value, such as
+`target_rul: null`) is rejected, and `event_ts` / `published_at` must be UTC strings (`Z` or `+00:00`),
+checked on the original text before conversion. Rejected messages are counted in the job log
+(`received` / `rejected`) and never reach Bronze.
+
+Tests, including the Spark ones (pytest, pyspark and Java 17 are in the image; locally on Windows
+the Spark tests are skipped because Java 25 is not supported by Spark 3.5):
+
+```powershell
+docker compose run --rm --no-deps spark-client python3 -m pytest -q tests
+```
 
 ## Hot path: Kafka -> Spark ML -> PostgreSQL (lot A5)
 
@@ -107,7 +118,27 @@ Start-up refuses to run (exit 3, explicit message) if the manifest's `schema_ver
 `model_hdfs_uri`, `target_cap_cycles` or `feature_schema_hash` (SHA-256 of the compact JSON list of the
 25 features) does not match. No fallback model, no heuristic.
 
-Per micro-batch: validate events, drop duplicates of `(run_id, event_id)`, `model.transform()` on the
-executors, clamp to [0, 125], status CRITICAL <= 20 < WARNING <= 50 < HEALTHY, `predicted_at` = scoring time,
-UPSERT from `foreachPartition` (psycopg2, one transaction per partition, 3 attempts). A NULL/NaN prediction or
-a database error fails the micro-batch, and Spark retries it from checkpoint `inference_v1`.
+Per micro-batch: validate events; refuse the batch if one `(run_id, event_id)` carries two different
+measurement sets (SHA-256 fingerprint of the 24 measurements), otherwise drop identical duplicates;
+`model.transform()` on the executors; clamp to [0, 125]; status CRITICAL <= 20 < WARNING <= 50 < HEALTHY;
+`predicted_at` = scoring time; UPSERT from `foreachPartition` (psycopg2, one transaction per partition,
+3 attempts). A NULL, NaN or infinite prediction, a conflicting duplicate or a database error fails the
+micro-batch, and Spark retries it from checkpoint `inference_v1`.
+
+Limit: the conflict check sees one micro-batch. A conflicting replay arriving in a later batch overwrites
+the SQL row (the table stores no measurements); Bronze keeps both versions and Reda's
+`deduplicate_bronze` gate refuses them in batch. A conflicting pair inside one batch blocks the stream
+on every retry until it is resolved by hand: do not inject one on a shared checkpoint.
+
+## Running streaming and batch jobs together
+
+4 cores in total (2 workers x 2 cores / 1 GiB); each application takes `spark.cores.max=2` as
+2 executors x 1 core x 450m, one on each worker. So at most two applications run at once: `spark-archive`
++ `spark-inference` during a replay, or one streaming job + one batch job. Stop one stream first
+(`docker compose stop spark-archive`, checkpoint kept) before `scripts/run_batch.sh` or training.
+
+## Evidence exported from the live run
+
+`docs/evidence/` holds the model v001 metadata copied from HDFS (`comparison.csv`, `manifest.json`,
+`metrics.json`, `predictions_test.csv`), the 164-row KPI snapshot, job log excerpts and a dashboard capture.
+See `docs/evidence/README.md`.

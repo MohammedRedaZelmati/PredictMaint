@@ -5,7 +5,7 @@ the "Verified" column names a real command run on a dated machine.
 
 | Component | Pinned version / image | Verified |
 |---|---|---|
-| Spark / PySpark | `apache/spark:3.5.3-scala2.12-java17-python3-ubuntu`, extended by `infra/Dockerfile.spark` into `smartpredict/spark:3.5.3` | 2026-11-21, Ayman's PC: image built; master + 2 workers ALIVE (1 core / 1024 MB each) |
+| Spark / PySpark | `apache/spark:3.5.3-scala2.12-java17-python3-ubuntu`, extended by `infra/Dockerfile.spark` into `smartpredict/spark:3.5.3` | 2026-11-21, Ayman's PC: image built; master + 2 workers ALIVE (first 1 core / 1024 MB each, then 2 cores / 1024 MB each, see issue 4); 2026-11-22: `spark-submit` on PATH, Spark tests run in `spark-client` |
 | Hadoop / HDFS | `apache/hadoop:3.3.6` | 2026-11-21: NameNode + 2 DataNodes live, `fsck` average block replication 2.0 |
 | Kafka (KRaft) | `apache/kafka:3.8.1` | 2026-11-21: healthy, topic `engine.measurements.v1` 3 partitions / RF 1 |
 | Spark Kafka connector | `spark-sql-kafka-0-10_2.12:3.5.3` + token-provider 3.5.3, kafka-clients 3.4.1, commons-pool2 2.11.1 (baked in) | 2026-11-21: `streaming/archive.py` consumed 20,837 events |
@@ -36,6 +36,16 @@ the "Verified" column names a real command run on a dated machine.
 | Official test | `scripts/run_evaluate.sh` | 100 terminal engines: RMSE 17.23, MAE 12.77; `model_registry` updated |
 | Dashboard | `docker compose --profile dashboard up -d dashboard` | Streamlit health OK; full run shows 100 engines, 12 critical, 16 to watch, 5 s refresh |
 
+## Evidence collected on 2026-11-22 (Ayman's PC, after cross-review of PRs #1-#8)
+
+| Check | Command | Result |
+|---|---|---|
+| Revised KPIs (PR #2, `069ab57`, then merged `main`) | `batch/kpis.py` + `batch/publish_kpis.py` on the live Bronze | 164 KPI rows, snapshot `d0e91350...`; `bronze_duplicate_rows` train 0 / test 412; `train_cycles_by_rul_band` 2,100 / 3,000 / 15,531; `missing_value_pct` 0 |
+| Dashboard `b8c1460` (PR #4) | built from `infra/Dockerfile.dashboard`, run on :8502 | tiles 20,631 / 13,096 / 412 / 0.00 %; `docker compose stop postgres`: "Base de données indisponible" message, no stack trace; `start postgres`: recovered within one 5 s refresh, 13,222 rows intact, inference 0 restarts |
+| Parser contract (PR #7, `221f175`) | 4 events to Kafka: extra `debug` key, `target_rul: null`, `event_ts` at `+01:00`, `published_at` at `+01:00` | `archive_v1` and `inference_v1`: received 4, rejected 4; Bronze and `predictions` unchanged; 0 restarts |
+| Inference safety (PR #8, `197b911`) | Spark tests in the image | conflicting `(run_id, event_id)` pair raises; identical replay gives one row; +/-inf, NaN, None give no status and the writer refuses the row. Not injected live (it would block the shared checkpoint on every retry) |
+| Test suite | `docker compose run --rm --no-deps spark-client python3 -m pytest -q tests` | 112 passed, 0 skipped (Spark tests included) |
+
 ## Issues found and fixed during the live run
 
 1. Spark master healthcheck never passed: `/bin/sh` is `dash` in the Ubuntu Spark image (no `/dev/tcp`)
@@ -47,15 +57,25 @@ the "Verified" column names a real command run on a dated machine.
    together. Workers now have 2 cores / 1 GiB and executors 450m (Spark's minimum; 448m is rejected with
    INVALID_EXECUTOR_MEMORY), so each app gets one executor on each worker.
 5. Reda's `batch/train_models.py::write_hdfs_text` crashed (`'str' object has no attribute 'getBytes'`)
-   after training. Patched on `integration/e2e-final` only (bytearray); partial outputs kept under
-   `/smartpredict/models/_failed_runs/20261121T194604Z`. Reda to apply on `feature/reda-sparkml`.
+   after training. Fixed with a bytearray (Reda's `d3e96cd`, merged in #3); partial outputs kept under
+   `/smartpredict/models/_failed_runs/20261121T194604Z`.
+6. `spark-submit` was not on PATH in the Spark image (the base image sets `SPARK_HOME` only), so the README
+   command and `scripts/run_batch.sh` / `run_evaluate.sh` failed when run as written; earlier runs used
+   `/opt/spark/bin/spark-submit`. `infra/Dockerfile.spark` now adds `/opt/spark/bin` to PATH.
+7. The Spark tests were skipped even inside the Spark image (pyspark not on PYTHONPATH, and the Java check
+   expected "17" in `JAVA_HOME=/opt/java/openjdk`). Compose now puts pyspark + py4j on PYTHONPATH for jobs
+   and `spark-client`, and the check recognises the image.
+8. The job logs hid a data micro-batch that followed an idle trigger with the same `batchId`
+   (a 4-event batch showed as `input_rows: 0`). Fixed in `fb59c5d` (log only, no data effect).
 
 ## Resource notes
 
 - With every service up (Kafka, NN, 2 DN, master, 2 workers, Postgres) containers used about 3.3 GiB;
   host free RAM went as low as 0.27 GiB during the first Spark job, without OOM or container restart.
-- The cluster has 2 cores in total and each Spark app takes `spark.cores.max=2`, so streaming jobs and batch
-  jobs run one after another (stop `spark-archive` with `docker compose stop`, checkpoint kept).
+- Since issue 4 the cluster has 4 cores (2 workers x 2 cores / 1 GiB) and each Spark app takes
+  `spark.cores.max=2` (2 executors x 1 core x 450m, one per worker). At most two apps run at once:
+  archive + inference during a replay, or one streaming job + one batch job. Stop one stream first
+  (`docker compose stop spark-archive`, checkpoint kept) before Silver/KPI/training.
 
 ## Host port conflicts
 

@@ -24,7 +24,8 @@ x-spark-job: &spark-job
     - .:/opt/smartpredict
     - ./infra/spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
   environment:
-    PYTHONPATH: /opt/smartpredict
+    # pyspark + py4j from the image so `python3 -m pytest` runs the Spark tests in spark-client.
+    PYTHONPATH: /opt/smartpredict:/opt/spark/python:/opt/spark/python/lib/py4j-0.10.9.7-src.zip
     POSTGRES_HOST: postgres
     POSTGRES_PORT: "5432"
     POSTGRES_DB: ${POSTGRES_DB:-smartpredict}
