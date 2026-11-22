@@ -46,10 +46,15 @@ def compute_kpis(spark, bronze, silver):
                   CAST(percentile_approx(length, 0.5) AS DOUBLE) FROM lengths
            UNION ALL
            SELECT 'trajectory_max_cycles', 'all', 'all', CAST(MAX(length) AS DOUBLE) FROM lengths""",
-        """SELECT 'quality_error_count' metric_name, 'all' dimension_name,
-                  'all' dimension_value,
-                  CAST((SELECT COUNT(*) FROM fd001_bronze) -
-                       (SELECT COUNT(*) FROM fd001_logical) AS DOUBLE) metric_value""",
+        """WITH physical AS (
+             SELECT source_split, COUNT(*) AS row_count FROM fd001_bronze GROUP BY source_split
+           ), logical AS (
+             SELECT source_split, COUNT(*) AS row_count FROM fd001_logical GROUP BY source_split
+           )
+           SELECT 'bronze_duplicate_rows' metric_name, 'split' dimension_name,
+                  physical.source_split dimension_value,
+                  CAST(physical.row_count - logical.row_count AS DOUBLE) metric_value
+           FROM physical JOIN logical ON physical.source_split = logical.source_split""",
         """SELECT 'train_cycles_by_rul_band' metric_name, 'rul_band' dimension_name,
                   CASE WHEN target_rul <= 20 THEN '0-20'
                        WHEN target_rul <= 50 THEN '21-50'
@@ -72,12 +77,12 @@ def compute_kpis(spark, bronze, silver):
     # These five FD001 sensors vary across trajectories; include split in each band.
     for sensor in ("sensor_02", "sensor_04", "sensor_07", "sensor_11", "sensor_12"):
         queries.append(f"""SELECT '{sensor}_mean' metric_name, 'split_cycle_band' dimension_name,
-                      CONCAT(source_split, ':', CAST(FLOOR((cycle-1)/50)*50+1 AS STRING)) dimension_value,
+                      CONCAT(source_split, ':', LPAD(CAST(FLOOR((cycle-1)/50)*50+1 AS STRING), 3, '0')) dimension_value,
                       AVG({sensor}) metric_value
                FROM fd001_logical GROUP BY source_split, FLOOR((cycle-1)/50)
                UNION ALL
                SELECT '{sensor}_stddev', 'split_cycle_band',
-                      CONCAT(source_split, ':', CAST(FLOOR((cycle-1)/50)*50+1 AS STRING)),
+                      CONCAT(source_split, ':', LPAD(CAST(FLOOR((cycle-1)/50)*50+1 AS STRING), 3, '0')),
                       stddev_pop({sensor})
                FROM fd001_logical GROUP BY source_split, FLOOR((cycle-1)/50)""")
 
