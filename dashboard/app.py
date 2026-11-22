@@ -83,15 +83,19 @@ def render_dashboard():
             ]
             return float(matches.iloc[0]["metric_value"]) if not matches.empty else None
 
+        def total_for(metric):
+            matches = kpi_frame[kpi_frame["metric_name"] == metric]
+            return float(matches["metric_value"].sum()) if not matches.empty else None
+
         train_count = value_for("measurements", "train")
         test_count = value_for("measurements", "test")
-        duplicates = value_for("quality_error_count", "all")
+        duplicates = total_for("bronze_duplicate_rows")
         missing_pct = value_for("missing_value_pct", "all")
         tiles = st.columns(4)
         tiles[0].metric("Cycles train", f"{train_count:,.0f}" if train_count is not None else "—")
         tiles[1].metric("Cycles test", f"{test_count:,.0f}" if test_count is not None else "—")
         tiles[2].metric("Doublons Bronze", f"{duplicates:,.0f}" if duplicates is not None else "—")
-        tiles[3].metric("Mesures manquantes", f"{missing_pct:.2f} %" if missing_pct is not None else "—")
+        tiles[3].metric("Manquantes après validation", f"{missing_pct:.2f} %" if missing_pct is not None else "—")
         with st.expander("Tous les indicateurs batch"):
             st.dataframe(kpi_frame, hide_index=True, use_container_width=True)
     else:
