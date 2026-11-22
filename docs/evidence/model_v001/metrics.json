@@ -1,0 +1,8 @@
+{
+  "validation_snapshots": 60,
+  "validation_rmse": 22.36895850129394,
+  "validation_mae": 17.141042949728035,
+  "test_rmse": 17.22989089733647,
+  "test_mae": 12.771385725078833,
+  "test_terminal_engines": 100
+}

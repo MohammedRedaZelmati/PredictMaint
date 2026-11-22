@@ -1,0 +1,21 @@
+2026-11-21T19:34:47.871746269Z [archive_v1] master=spark://spark-master:7077 topic=engine.measurements.v1 bronze=hdfs://namenode:8020/smartpredict/bronze/engine_events/ checkpoint=hdfs://namenode:8020/smartpredict/checkpoints/archive_v1/
+2026-11-21T19:35:05.086748339Z [archive_v1] {"batch": 0, "input_rows": 206, "received": 206, "rejected": 0, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-21T19:35:20.087005495Z [archive_v1] {"batch": 1, "input_rows": 0, "received": null, "rejected": null, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-21T19:35:35.088641736Z [archive_v1] {"batch": 2, "input_rows": 4999, "received": 4999, "rejected": 0, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-21T19:35:50.089429663Z [archive_v1] {"batch": 3, "input_rows": 4998, "received": 4998, "rejected": 0, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-21T19:36:05.091806367Z [archive_v1] {"batch": 5, "input_rows": 637, "received": 637, "rejected": 0, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-21T19:36:20.092122690Z [archive_v1] {"batch": 6, "input_rows": 0, "received": null, "rejected": null, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-21T19:55:11.782916114Z [archive_v1] master=spark://spark-master:7077 topic=engine.measurements.v1 bronze=hdfs://namenode:8020/smartpredict/bronze/engine_events/ checkpoint=hdfs://namenode:8020/smartpredict/checkpoints/archive_v1/
+2026-11-21T19:55:30.636300433Z [archive_v1] {"batch": 6, "input_rows": 0, "received": null, "rejected": null, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-21T19:56:00.652717512Z [archive_v1] {"batch": 7, "input_rows": 4999, "received": 4999, "rejected": 0, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-21T19:56:15.659053221Z [archive_v1] {"batch": 8, "input_rows": 3099, "received": 3099, "rejected": 0, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-21T19:56:30.665666208Z [archive_v1] {"batch": 9, "input_rows": 0, "received": null, "rejected": null, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-21T19:57:00.682986971Z [archive_v1] {"batch": 10, "input_rows": 0, "received": null, "rejected": null, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-22T02:13:42.721205291Z [archive_v1] master=spark://spark-master:7077 topic=engine.measurements.v1 bronze=hdfs://namenode:8020/smartpredict/bronze/engine_events/ checkpoint=hdfs://namenode:8020/smartpredict/checkpoints/archive_v1/
+2026-11-22T02:14:01.588060361Z [archive_v1] {"batch": 11, "input_rows": 0, "received": null, "rejected": null, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-22T02:15:01.611161455Z [archive_v1] {"batch": 12, "input_rows": 0, "received": null, "rejected": null, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-22T02:17:04.581580585Z [archive_v1] master=spark://spark-master:7077 topic=engine.measurements.v1 bronze=hdfs://namenode:8020/smartpredict/bronze/engine_events/ checkpoint=hdfs://namenode:8020/smartpredict/checkpoints/archive_v1/
+2026-11-22T02:17:22.979501135Z [archive_v1] {"batch": 12, "input_rows": 0, "received": null, "rejected": null, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-22T02:17:52.989246366Z [archive_v1] {"batch": 12, "input_rows": 4, "received": 4, "rejected": 4, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}
+2026-11-22T02:17:52.989304168Z [archive_v1] WARNING 4 invalid event(s) excluded from Bronze
+2026-11-22T02:18:07.994656158Z [archive_v1] {"batch": 13, "input_rows": 0, "received": null, "rejected": null, "sink": "FileSink[hdfs://namenode:8020/smartpredict/bronze/engine_events/]"}

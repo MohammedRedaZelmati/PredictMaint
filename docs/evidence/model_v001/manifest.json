@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "model_version": "v001",
+  "model_hdfs_uri": "hdfs://namenode:8020/smartpredict/models/rul_pipeline/v001/",
+  "algorithm": "GBTRegressor",
+  "algorithm_params": {
+    "maxDepth": 5,
+    "maxIter": 60,
+    "stepSize": 0.05
+  },
+  "target_name": "target_rul",
+  "target_cap_cycles": 125,
+  "feature_columns_uri": "contracts/feature_columns.json",
+  "feature_schema_hash": "05ad82b0be2cdb6ad78a1216b2c4ddfe80f29c58f5082039ec0f273d2c638d6f",
+  "split_seed": 42,
+  "validation_metric": "rmse",
+  "trained_at_utc": "2026-11-21T19:48:22.740542+00:00",
+  "train_dataset_sha256": "963b5e22825b34d8b21c69e1aeb4af3e647050eb672ee8834ba4b5d91d2de0f8"
+}

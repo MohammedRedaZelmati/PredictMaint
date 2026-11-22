@@ -1,0 +1,12 @@
+candidate,algorithm,params,rmse,mae,fit_seconds
+B0,Median,"{""median"": 105.0}",62.22887861221133,57.2,0.0
+M1,LinearRegression,"{""regParam"": 0.1}",10366295.605117738,8591058.608496094,6.002562257000136
+M2,RandomForestRegressor,"{""maxDepth"": 8, ""numTrees"": 50}",23.335531166642646,18.21573231591877,5.275219178000043
+M3,GBTRegressor,"{""maxDepth"": 3, ""maxIter"": 30, ""stepSize"": 0.05}",24.451966426955593,19.609389145019353,8.079940313999941
+M3,GBTRegressor,"{""maxDepth"": 3, ""maxIter"": 30, ""stepSize"": 0.1}",23.4846469649017,18.471518583836577,6.7132019069995295
+M3,GBTRegressor,"{""maxDepth"": 3, ""maxIter"": 60, ""stepSize"": 0.05}",23.46185163955712,18.226892492908824,10.900268012999732
+M3,GBTRegressor,"{""maxDepth"": 3, ""maxIter"": 60, ""stepSize"": 0.1}",22.644260602844792,17.440530038467063,10.031390478000503
+M3,GBTRegressor,"{""maxDepth"": 5, ""maxIter"": 30, ""stepSize"": 0.05}",23.51616655642379,17.97064930659709,8.051162923000447
+M3,GBTRegressor,"{""maxDepth"": 5, ""maxIter"": 30, ""stepSize"": 0.1}",22.7650219788668,17.341032575103046,7.742125423999823
+M3,GBTRegressor,"{""maxDepth"": 5, ""maxIter"": 60, ""stepSize"": 0.05}",22.36895850129394,17.141042949728035,15.480495894999876
+M3,GBTRegressor,"{""maxDepth"": 5, ""maxIter"": 60, ""stepSize"": 0.1}",22.387256024851627,17.192070672667263,16.103349114000594
