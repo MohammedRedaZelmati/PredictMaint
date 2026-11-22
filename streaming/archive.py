@@ -110,13 +110,17 @@ def main(argv: list[str] | None = None) -> int:
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
 
-    last_batch = None
+    last_seen = (-1, False)
     while query.isActive:
         query.awaitTermination(15)
-        progress = query.lastProgress
-        if progress and progress.get("batchId") != last_batch:
-            last_batch = progress.get("batchId")
-            report(progress)
+        # recentProgress, not lastProgress: several batches can finish between two polls.
+        # An idle trigger reports the NEXT batchId with 0 rows, before the data batch with the
+        # same id, so the key also orders "has rows" after "idle".
+        for progress in query.recentProgress:
+            seen = (progress.get("batchId", -1), (progress.get("numInputRows") or 0) > 0)
+            if seen > last_seen:
+                last_seen = seen
+                report(progress)
 
     error = query.exception()
     if error is not None:
