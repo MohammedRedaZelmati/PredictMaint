@@ -76,12 +76,35 @@ def test_valid_event_is_parsed_with_provenance(spark):
     lambda e: e.update(event_ts="yesterday"),
     lambda e: e.update(target_rul=42.0),
     lambda e: e.pop("op_setting_2"),
+    # Review on #7: keys outside the contract, even with a null value, must be rejected.
+    lambda e: e.update(debug="x"),
+    lambda e: e.update(target_rul=None),
+    lambda e: e.update(rul=None),
+    # Review on #7: the contract requires UTC; to_timestamp() alone would accept an offset.
+    lambda e: e.update(event_ts="2026-01-01T01:00:00+01:00"),
+    lambda e: e.update(published_at="2026-11-21T13:00:00.000+01:00"),
+    lambda e: e.update(event_ts="2026-01-01T00:05:00"),
+    lambda e: e.update(published_at="2026-11-21 12:00:00Z"),
+    lambda e: e.update(event_ts="2026-13-01T00:05:00Z"),
 ])
 def test_invalid_events_are_flagged(spark, mutate):
     event = synthetic_event()
     mutate(event)
     out = parse_kafka(kafka_rows(spark, [(kafka_key("test", 1), event)])).collect()[0]
     assert out.is_valid is False
+
+
+@pytest.mark.parametrize("event_ts, published_at", [
+    ("2026-01-01T00:05:00Z", "2026-11-21T12:00:00.123Z"),
+    ("2026-01-01T00:05:00+00:00", "2026-11-21T12:00:00.123456+00:00"),
+])
+def test_utc_timestamps_are_accepted(spark, event_ts, published_at):
+    event = synthetic_event()
+    event.update(event_ts=event_ts, published_at=published_at)
+    out = parse_kafka(kafka_rows(spark, [(kafka_key("test", 1), event)])).collect()[0]
+    assert out.is_valid
+    assert out.event_ts == datetime(2026, 1, 1, 0, 5, 0)
+    assert "_event_ts_is_utc" not in out.asDict()
 
 
 def test_wrong_key_and_garbage_payload_are_flagged(spark):

@@ -33,6 +33,9 @@ EVENT_SCHEMA = StructType(
 EVENT_FIELDS = tuple(field.name for field in EVENT_SCHEMA.fields)
 
 UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+# RFC 3339 date-time restricted to UTC, as in contracts/event.schema.json: checked on the
+# ORIGINAL string, because to_timestamp() would silently convert "+01:00" to UTC.
+UTC_TIMESTAMP_PATTERN = r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?(Z|\+00:00)$"
 
 
 def _finite(column: Column) -> Column:
@@ -58,11 +61,19 @@ def parse_kafka(raw: DataFrame) -> DataFrame:
         *[F.col(f"e.{name}").alias(name) for name in EVENT_FIELDS],
         "raw_value", "kafka_key", "kafka_topic", "kafka_partition", "kafka_offset", "kafka_timestamp",
     )
-    events = events.withColumn("event_ts", F.to_timestamp("event_ts")).withColumn(
-        "published_at", F.to_timestamp("published_at")
-    )
+    # from_json() drops keys outside EVENT_SCHEMA, so the key set is read from the raw text:
+    # it lists every top-level key, including one whose value is JSON null (additionalProperties: false).
+    keys = F.expr("json_object_keys(raw_value)")
+    allowed = F.array(*[F.lit(name) for name in EVENT_FIELDS])
+    time_fields = ("event_ts", "published_at")
+    events = events.withColumns(
+        {f"_{name}_is_utc": F.col(name).rlike(UTC_TIMESTAMP_PATTERN) for name in time_fields}
+    ).withColumns({name: F.to_timestamp(name) for name in time_fields})
 
     checks = [
+        F.size(keys) == len(EVENT_FIELDS),
+        F.size(F.array_except(keys, allowed)) == 0,
+        *[F.col(f"_{name}_is_utc") for name in time_fields],
         F.col("schema_version") == 1,
         F.col("dataset") == "NASA-CMAPSS-FD001",
         F.col("source_split").isin("train", "test"),
@@ -75,10 +86,12 @@ def parse_kafka(raw: DataFrame) -> DataFrame:
         F.col("published_at").isNotNull(),
     ]
     checks += [_finite(F.col(name)) for name in NUMERIC_FIELDS]
-    # A label leaking into Kafka is a contract breach even if every required field is fine.
-    checks += [F.get_json_object("raw_value", f"$.{name}").isNull() for name in FORBIDDEN_FIELDS]
+    # A label leaking into Kafka (FORBIDDEN_FIELDS, even with a null value) is rejected by the
+    # exact key-set check above, like any other key outside the contract.
 
     is_valid = checks[0]
     for check in checks[1:]:
         is_valid = is_valid & check
-    return events.withColumn("is_valid", F.coalesce(is_valid, F.lit(False)))
+    return events.withColumn("is_valid", F.coalesce(is_valid, F.lit(False))).drop(
+        *[f"_{name}_is_utc" for name in time_fields]
+    )
