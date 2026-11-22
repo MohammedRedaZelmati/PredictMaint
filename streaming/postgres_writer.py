@@ -10,6 +10,7 @@ Pure Python (psycopg2 imported lazily) so the logic is testable without Spark or
 
 from __future__ import annotations
 
+import math
 import os
 import time
 from typing import Callable, Iterable
@@ -37,7 +38,8 @@ ROW_TEMPLATE = "(%s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
 
 def clamp_rul(prediction: float) -> float:
     """Contract: predicted_rul_cycles = max(0, min(125, prediction))."""
-    if prediction is None or prediction != prediction:  # None or NaN: never invent a value
+    # None, NaN or +/-inf: never invent a value by clamping it to 0 or 125.
+    if prediction is None or not math.isfinite(prediction):
         raise ValueError(f"model returned no usable prediction: {prediction!r}")
     return max(0.0, min(RUL_CAP, float(prediction)))
 

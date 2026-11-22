@@ -1,0 +1,965 @@
+% !TEX program = xelatex
+% SmartPredict - Architecture contract, version 1.0 (2026-11-21)
+% Copyright: academic project authors Ayman and Reda.
+\documentclass[10pt,a4paper]{article}
+\usepackage[margin=19mm,headheight=16pt,footskip=13mm]{geometry}
+\usepackage{fontspec}
+\usepackage[french]{babel}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,longtable,tabularx,array,multirow}
+\usepackage{graphicx,xcolor,colortbl}
+\usepackage[most]{tcolorbox}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,shapes.geometric,calc,backgrounds}
+\usepackage{fancyhdr,lastpage}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{needspace}
+\usepackage{titlesec}
+\usepackage{pdflscape}
+\usepackage{url}
+\usepackage{xurl}
+\usepackage{etoolbox}
+\setmainfont{Noto Serif}
+\setsansfont{Lato}
+\setmonofont{DejaVu Sans Mono}[Scale=0.83]
+\definecolor{ink}{HTML}{182436}
+\definecolor{blueone}{HTML}{15476C}
+\definecolor{bluetail}{HTML}{E8F1F6}
+\definecolor{teal}{HTML}{08796E}
+\definecolor{tealtail}{HTML}{E8F6F2}
+\definecolor{amber}{HTML}{935B07}
+\definecolor{ambertail}{HTML}{FFF4E3}
+\definecolor{slate}{HTML}{5C6775}
+\definecolor{mist}{HTML}{F4F7F9}
+\color{ink}
+\hypersetup{colorlinks=true,linkcolor=blueone,urlcolor=teal,pdftitle={SmartPredict - Architecture et collaboration technique},pdfauthor={Ayman et Reda},pdfsubject={Cahier d'architecture du pipeline Big Data}}
+\titleformat{\section}{\Large\bfseries\color{blueone}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries\color{blueone}}{\thesubsection}{0.7em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{teal}}{\thesubsubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{15pt}{7pt}
+\titlespacing*{\subsection}{0pt}{10pt}{5pt}
+\setlist[itemize]{leftmargin=17pt,itemsep=2pt,topsep=3pt}
+\setlist[enumerate]{leftmargin=19pt,itemsep=2pt,topsep=3pt}
+\renewcommand{\arraystretch}{1.16}
+\emergencystretch=2em
+\Urlmuskip=0mu plus 1mu
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize\sffamily\textcolor{slate}{SMARTPREDICT / SPECIFICATION V1.0}}
+\fancyhead[R]{\footnotesize\sffamily\textcolor{slate}{Ayman + Reda}}
+\fancyfoot[L]{\footnotesize\textcolor{slate}{Document d'architecture -- 21/11/2026}}
+\fancyfoot[R]{\footnotesize\textcolor{slate}{\thepage/\pageref{LastPage}}}
+\renewcommand{\headrulewidth}{0.4pt}
+\newcommand{\code}[1]{{\small\ttfamily\nolinkurl{#1}}}
+\newcommand{\ident}[1]{{\sffamily\bfseries #1}}
+\newcommand{\mandatory}{\textcolor{teal}{\textbf{EXIGENCE}}}
+\newcommand{\decision}{\textcolor{blueone}{\textbf{DECISION}}}
+\newcommand{\pending}{\textcolor{amber}{\textbf{A VALIDER}}}
+\newcommand{\ayman}{\textcolor{blueone}{\textbf{AYMAN}}}
+\newcommand{\reda}{\textcolor{teal}{\textbf{REDA}}}
+\newtcolorbox{notebox}[1][]{enhanced,breakable,colback=bluetail,colframe=blueone!30,boxrule=0.4pt,arc=2mm,left=3mm,right=3mm,top=2mm,bottom=2mm,#1}
+\newtcolorbox{warningbox}[1][]{enhanced,breakable,colback=ambertail,colframe=amber!35,boxrule=0.4pt,arc=2mm,left=3mm,right=3mm,top=2mm,bottom=2mm,#1}
+\newtcolorbox{successbox}[1][]{enhanced,breakable,colback=tealtail,colframe=teal!35,boxrule=0.4pt,arc=2mm,left=3mm,right=3mm,top=2mm,bottom=2mm,#1}
+\lstdefinestyle{contract}{basicstyle=\ttfamily\footnotesize,backgroundcolor=\color{mist},frame=single,rulecolor=\color{blueone!20},numbers=none,breaklines=true,breakatwhitespace=false,showstringspaces=false,columns=fullflexible,keepspaces=true,tabsize=2,xleftmargin=3pt,xrightmargin=3pt,aboveskip=7pt,belowskip=7pt}
+\lstset{style=contract}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcommand{\docref}{\emph{Fiche de projet -- Pipeline Big Data de bout en bout, version 2026, Pr. El Ghali Btihal.}}
+\begin{document}
+
+\begin{titlepage}
+\thispagestyle{empty}
+\vspace*{13mm}
+\begin{tcolorbox}[enhanced,colback=blueone,colframe=blueone,arc=0mm,boxrule=0pt,top=15mm,bottom=13mm,left=12mm,right=12mm]
+{\sffamily\color{white}\Large PROJET BIG DATA PLATEFORMES \& ANALYTICS\par}
+\vspace{10mm}
+{\sffamily\bfseries\color{white}\fontsize{35}{39}\selectfont SmartPredict\par}
+\vspace{3mm}
+{\sffamily\color{white}\Large Maintenance predictive des turboreacteurs\par}
+\vspace{9mm}
+{\sffamily\color{white}\large Cahier d'architecture, de contrats techniques et de collaboration\par}
+\end{tcolorbox}
+\vspace{14mm}
+{\sffamily\color{blueone}\fontsize{23}{27}\selectfont Specification technique V1.0\par}
+\vspace{3mm}
+{\Large Pipeline de bout en bout\par}
+\vspace{11mm}
+\begin{tcolorbox}[colback=tealtail,colframe=teal!35,arc=3mm,boxrule=0.7pt]
+\textbf{Deux contributeurs -- deux postes de developpement -- un seul depot GitHub}\par
+\smallskip
+\begin{tabularx}{\linewidth}{@{}p{24mm}Yp{30mm}@{}}
+\ident{Ayman} & Architecture Docker, Kafka, HDFS, ingestion et streaming & \ident{Claude Code}\\
+\ident{Reda} & Spark SQL, Spark ML, PostgreSQL, dashboard et evaluation & \ident{Codex}\\
+\end{tabularx}
+\end{tcolorbox}
+\vfill
+\begin{tabularx}{\linewidth}{@{}p{38mm}Y@{}}
+\textbf{Reference} & Fiche officielle du projet, version 2026, pages 1--3\\
+\textbf{Date de gel} & 21 novembre 2026\\
+\textbf{Statut} & Specification cible ; realisation et mesures a verifier\\
+\textbf{Echeance annoncee} & Presentations : semaine du 7 decembre 2026\\
+\end{tabularx}
+\end{titlepage}
+
+\begin{notebox}
+\textbf{Nature du present document.} Ceci est le \emph{contrat d'architecture et de collaboration} destine a fixer une solution commune avant de demander du code a Claude Code et a Codex. Ce n'est \textbf{pas} le rapport final remis a la professeure. Le rapport final devra rester \textbf{inferieur ou egal a 20 pages}, comme impose par la fiche. Les chemins, noms et interfaces ci-apres constituent les valeurs de reference a ne pas modifier unilateralement.
+\end{notebox}
+\tableofcontents
+\clearpage
+
+\section{Cadre academique, exigences et perimetre}
+\subsection{Source et contraintes non negociables}
+Le document source est la \docref{} Il demande une solution reproductible, une ingestion Kafka, l'archivage historique HDFS, des analyses Spark SQL, un modele Spark ML entraine et sauvegarde, l'inference Spark Structured Streaming et une base de restitution. La fiche decrit un groupe type de quatre personnes ; cette specification organise le travail du binome Ayman--Reda, comme convenu dans l'equipe. \textbf{La validation du sujet et du jeu de donnees par l'enseignante reste une etape distincte, explicitement obligatoire dans la fiche.}
+
+\begin{longtable}{@{}p{12mm}p{82mm}p{32mm}p{30mm}@{}}
+\toprule
+\textbf{ID} & \textbf{Exigence de la fiche} & \textbf{Preuve attendue} & \textbf{Pilote}\\\midrule
+\endhead
+F01 & Un Spark master et \textbf{deux workers distincts} & Compose, UI Spark, executors & Ayman\\
+F02 & Un NameNode et \textbf{deux DataNodes} & UI HDFS, services & Ayman\\
+F03 & Replication HDFS de \textbf{2} ; volumes DataNodes separes et persistants & Configuration + fsck & Ayman\\
+F04 & Tous les jobs Spark sur le cluster distribue & \code{master=spark://spark-master:7077} et traces & Tous deux\\
+F05 & Source Structured Streaming = \textbf{Kafka} & Job Kafka en marche & Ayman\\
+F06 & Archives \textbf{HDFS Parquet/CSV} et relecture par Spark & Fichiers HDFS, lecture & Ayman/Reda\\
+F07 & Spark SQL : indicateurs historiques & Tables et resultats & Reda\\
+F08 & Spark ML : \textbf{une seule tache} de prediction & Regression RUL & Reda\\
+F09 & \textbf{Trois techniques ML} comparees, puis tuning d'une technique & Tableau comparatif + grille & Reda\\
+F10 & Separation train/test ; preparation apprise sur train uniquement & Tests anti-fuite & Reda\\
+F11 & Evaluation : baseline + MAE/RMSE pour regression & Rapport de mesures & Reda\\
+F12 & Pipeline ML sauvegarde comprenant la preparation & Chemin HDFS + rechargement & Reda/Ayman\\
+F13 & Inference au fil des evenements Kafka & Predictions en base & Ayman\\
+F14 & Base de restitution pour predictions et KPI & Tables SQL inspectables & Reda/Ayman\\
+F15 & Dashboard a actualisation automatique = \emph{bonus} & Page Streamlit active & Reda\\
+F16 & Checkpoints, reprise et redemarrage testes & Scenario de reprise documente & Tous deux\\
+F17 & Depot GitHub reproductible, versions figees, \code{.env.example} sans secrets & Clone + demarrage a blanc & Tous deux\\
+F18 & Rapport \(\leq 20\) pages, contributions detaillees, video de \textbf{10 min} & Rapport + video & Tous deux\\
+F19 & Source, schema, volumes, identifiants, horodatages, cible documentes & Contrat evenement et dataset & Reda\\
+F20 & Validation du sujet et des donnees par l'enseignante & Accord explicite & Tous deux\\
+\bottomrule
+\end{longtable}
+
+\subsection{Decisions gelees (ADR)}
+\begin{tabularx}{\linewidth}{@{}p{13mm}Y@{}}
+\toprule
+\textbf{ID} & \textbf{Decision architecturale figee}\\\midrule
+ADR-01 & Sujet : estimation de la duree de vie restante des moteurs (RUL), \textbf{regression} uniquement.\\
+ADR-02 & Donnees : NASA C-MAPSS \textbf{FD001 uniquement} ; fichiers train, test et RUL.\\
+ADR-03 & Langage Spark : \textbf{Python/PySpark} ; modeles obligatoirement \textbf{Spark ML}, pas scikit-learn ni XGBoost pour les trois candidats.\\
+ADR-04 & Ingestion : producteur Python de replay CSV \(\rightarrow\) Kafka \code{engine.measurements.v1}.\\
+ADR-05 & Stockage : HDFS \(\times 2\) DataNodes et \code{dfs.replication=2}, fichiers Parquet.\\
+ADR-06 & Calcul : Spark 3.5.3, master + 2 workers, lancement \code{spark-submit} sur \code{spark://spark-master:7077}.\\
+ADR-07 & Trois modeles : LinearRegression, RandomForestRegressor, GBTRegressor ; tuning \textbf{GBTRegressor}.\\
+ADR-08 & \textbf{Pas de variables rolling dans le modele V1} : features instantanees, pour equivalence batch/streaming et eviter tout etat fragile. KPI temporels autorises hors features ML.\\
+ADR-09 & Preparation ML : \code{Imputer} \(\rightarrow\) \code{VectorAssembler} \(\rightarrow\) estimateur ; tout sauvegarde dans \code{PipelineModel}.\\
+ADR-10 & Base : PostgreSQL 16, schema SQL defini et versionne ; dashboard Streamlit.\\
+ADR-11 & Flux froid et chaud = \textbf{deux jobs Structured Streaming independants}, chacun avec son propre checkpoint HDFS.\\
+ADR-12 & Contrats de messages, noms de tables, dossiers et interfaces versionnes ; modification uniquement par PR approuvee par les deux.\\
+\bottomrule
+\end{tabularx}
+
+\begin{warningbox}
+\textbf{A ne pas confondre :} les moteurs C-MAPSS possedent un indice de \emph{cycle}, pas un timestamp reel. Les timestamps publies dans Kafka seront des horodatages \textbf{simules} ou de publication ; ils ne representent pas des mesures NASA en temps reel. Le RUL est mesure en \textbf{cycles}, pas en heures ni en jours.
+\end{warningbox}
+
+\section{Sujet, donnees et cible de prediction}
+\subsection{Cas d'usage metier}
+La plateforme simule un parc de turboreacteurs dont les capteurs evoluent au fil des cycles. L'objectif de regression est de predire, pour une observation disponible a un cycle donne, le nombre de \emph{cycles restants avant la fin de vie du moteur}. Le tableau de bord permet de visualiser les estimations et d'identifier les moteurs a surveiller. Il s'agit d'un \textbf{prototype academique} ; aucune decision de maintenance reelle ne doit reposer sur ce systeme.
+
+\subsection{Inventaire des fichiers NASA FD001}
+\begin{tabularx}{\linewidth}{@{}p{33mm}Yp{27mm}@{}}
+\toprule
+\textbf{Fichier} & \textbf{Signification} & \textbf{Volume attendu}\\\midrule
+\code{train_FD001.txt} & Trajectoires entieres jusqu'a la panne, 100 moteurs & 20\,631 lignes\\
+\code{test_FD001.txt} & Trajectoires tronquees de 100 autres moteurs & 13\,096 lignes\\
+\code{RUL_FD001.txt} & Vrai RUL au dernier cycle observe de chaque moteur test, aligne par ordre des identifiants & 100 valeurs\\
+\bottomrule
+\end{tabularx}
+Chaque ligne \code{train_FD001.txt} et \code{test_FD001.txt} contient \textbf{26 colonnes} : \code{engine_id}, \code{cycle}, trois parametres de fonctionnement \code{op_setting_1..3}, et 21 capteurs \code{sensor_01..sensor_21}. Les volumes ci-dessus sont les tailles attendues communement publiees pour FD001 ; les scripts devront \emph{verifier les fichiers reels} et enregistrer les hachages SHA-256. La licence, les conditions de reutilisation et l'URL exacte de telechargement doivent etre consignees apres consultation de la source effectivement utilisee. Ne jamais inclure un dataset de provenance incertaine ou synthetique sans etiquette explicite.
+
+\subsection{Formule du RUL et evaluation}
+Pour le moteur \(i\) de la partie train, son dernier cycle \(T_i\) represente la defaillance simulee. La variable cible d'apprentissage est :
+\[
+\mathrm{RUL}_{i,t}=\min\left(125,\;T_i-t\right), \qquad t\leq T_i.
+\]
+Pour un moteur \(j\) de test, \(T_j^{obs}\) est le dernier cycle \emph{observe}, et \(r_j^{official}\) provient de \code{RUL_FD001.txt}. On evalue prioritairement la prediction au dernier cycle observe sur :
+\[
+ y_{j,\,T_j^{obs}} = \min\left(125,\;r_j^{official}\right).
+\]
+Pour une evaluation retrospective a un cycle \(t\leq T_j^{obs}\), la cible coherente avec le plafond est :
+\[
+ y_{j,t}=\min\left(125,\;r_j^{official}+T_j^{obs}-t\right).
+\]
+\textbf{Interdiction :} calculer le vrai RUL de test comme \(T_j^{obs}-t\), car \(T_j^{obs}\) n'est pas une panne. Les scores rapportent clairement s'ils portent sur RUL plafonne ou brut. La metrique principale sur le test officiel est \textbf{RMSE sur les 100 points terminaux}, et MAE est egalement reportee.
+
+\subsection{Regles de qualite et de separation}
+\begin{itemize}
+\item \textbf{Aucune fuite de moteur :} les identifiants d'engin d'entrainement et validation sont disjoints. Les moteurs de test NASA ne servent jamais au tuning.
+\item \textbf{Aucune fuite future :} le RUL est une \emph{cible}, jamais une variable ; le maximum de cycle est utilise pour generer les labels train, jamais pour l'inference ; \code{source_split}, \code{run_id} et les timestamps ne sont pas des features.
+\item \textbf{Preparation :} les moyennes d'imputation sont apprises sur les exemples d'entrainement seulement ; les donnees de validation/test sont transformees par le meme modele sauvegarde.
+\item \textbf{Qualite :} verifier 26 champs numeriques, identifiants entiers positifs, cycles croissants sans doublons par moteur, valeurs finies, coherence du nombre de moteurs, et absence de fichiers manquants.
+\item \textbf{Protocoles :} garder les 100 moteurs test hors de tout choix de features ou d'hyperparametres. Toute selection de modele est faite sur la validation de moteurs train uniquement.
+\end{itemize}
+
+\section{Architecture cible de bout en bout}
+\subsection{Schema logique general}
+\begin{figure}[H]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[>=Latex,thick,font=\sffamily\small,node distance=7mm and 10mm,
+base/.style={draw=blueone!45,rounded corners=2mm,fill=bluetail,align=center,minimum height=11mm,minimum width=28mm},
+data/.style={base,fill=tealtail,draw=teal!50},
+arrow/.style={-Latex,line width=0.8pt,draw=blueone}]
+\node[base] (nasa) at (0,0) {NASA C-MAPSS\\FD001 (CSV)};
+\node[base,right=of nasa] (prod) {Python replay\\Producer};
+\node[base,right=of prod] (kafka) {Kafka / KRaft\\engine.measurements.v1};
+\node[data,right=16mm of kafka,yshift=14mm] (bronze) {Spark Streaming\\archive job};
+\node[data,right=of bronze] (hdfs) {HDFS / Parquet\\NameNode + 2 DataNodes};
+\node[data,below=20mm of hdfs] (batch) {Spark SQL / ML\\batch + training};
+\node[data,left=of batch] (model) {HDFS : PipelineModel\\v001 + metadonnees};
+\node[base,below=20mm of kafka] (hot) {Spark Streaming\\inference job};
+\node[data,right=of hot] (pg) {PostgreSQL\\predictions + KPI};
+\node[data,below=of pg] (ui) {Streamlit\\tableau de bord};
+\draw[arrow] (nasa)--(prod);
+\draw[arrow] (prod)--(kafka);
+\draw[arrow] (kafka.east) -- ++(7mm,0) |- (bronze.west);
+\draw[arrow] (bronze)--(hdfs);
+\draw[arrow] (hdfs)--(batch);
+\draw[arrow] (batch)--(model);
+\draw[arrow] (model.west) -| (hot.south);
+\draw[arrow] (kafka.south)--(hot.north);
+\draw[arrow] (hot)--(pg);
+\draw[arrow] (batch.east) -| ([xshift=5mm]pg.east) |- (pg.east);
+\draw[arrow] (pg)--(ui);
+\node[anchor=north,font=\scriptsize\color{slate}] at (hdfs.south) {voie froide : archives et apprentissage};
+\node[anchor=south,font=\scriptsize\color{slate}] at (hot.north) {voie chaude : prediction continue};
+\end{tikzpicture}}
+\caption{Flux logique : le meme Kafka alimente une voie d'archivage et une voie de prediction distinctes. Les jobs Spark tournent sur le cluster distribue.}
+\end{figure}
+
+\subsection{Topologie physique imposee}
+\begin{longtable}{@{}p{31mm}p{24mm}p{60mm}p{28mm}@{}}
+\toprule
+\textbf{Service compose} & \textbf{Technologie} & \textbf{Mission et dependances} & \textbf{Responsable}\\\midrule
+\endhead
+\code{namenode} & Hadoop 3.3.6 & HDFS RPC 8020, UI 9870, volume nom propre & Ayman\\
+\code{datanode-1} & Hadoop 3.3.6 & Stockage \code{hdfs_dn1_data} ; inscription NameNode & Ayman\\
+\code{datanode-2} & Hadoop 3.3.6 & Stockage \code{hdfs_dn2_data} ; inscription NameNode & Ayman\\
+\code{spark-master} & Spark 3.5.3 & Planificateur Spark, port 7077, UI 8080 & Ayman\\
+\code{spark-worker-1} & Spark 3.5.3 & Executeur distinct, 1 core/1 Go memoire exemple & Ayman\\
+\code{spark-worker-2} & Spark 3.5.3 & Executeur distinct, 1 core/1 Go memoire exemple & Ayman\\
+\code{kafka} & Kafka 3.8.1 & Broker unique KRaft, topic 3 partitions, replications Kafka = 1 & Ayman\\
+\code{postgres} & PostgreSQL 16 & Tables predictions, KPI et manifestes modeles & Reda (SQL) / Ayman (Compose)\\
+\code{dashboard} & Streamlit & Vue web des KPI / predictions, rafraichissement periodique & Reda\\
+\code{spark-archive} & Spark client & Job perpetuel Kafka vers HDFS, profil \code{jobs} & Ayman\\
+\code{spark-inference} & Spark client & Job perpetuel Kafka vers PostgreSQL, demarre apres ML & Ayman\\
+\code{spark-client} & Spark client & \code{spark-submit} ponctuel batch/ML, producteur, diagnostic & Tous deux\\
+\bottomrule
+\end{longtable}
+Tous les conteneurs utilisent un reseau \code{smartpredict_net}. Les deux workers Spark, les deux DataNodes et les conteneurs de jobs sont physiquement distincts. \code{spark-client} et les jobs executent un \emph{driver Spark} qui soumet les taches au master ; ils ne remplacent \textbf{jamais} les deux workers. Le mode \code{local[*]} est prohibe pour les essais de demonstration finaux.
+
+\subsection{Versions et dependances verrouillees}
+\begin{tabularx}{\linewidth}{@{}p{39mm}p{46mm}Y@{}}
+\toprule
+\textbf{Composant} & \textbf{Reference V1} & \textbf{Notes de reproductibilite}\\\midrule
+Python & Python 3.x embarque dans les images retenues & Version exacte a figer dans \code{runtime-lock.md} apres verification\\
+Apache Spark / PySpark & 3.5.3 / Scala 2.12 / JDK 17 & Image : \code{apache/spark:3.5.3-scala2.12-java17-python3-ubuntu}\\
+Hadoop / HDFS & 3.3.6 & Image : \code{apache/hadoop:3.3.6} ; roles configures explicitement\\
+Apache Kafka & 3.8.1 (KRaft) & Image : \code{apache/kafka:3.8.1}\\
+PostgreSQL & 16.x (tag mineur verrouille avant commit) & Image officielle, version precise par digest dans le depot\\
+Streamlit & 1.39.x ou version testee et figee & Package Python pinne dans fichier de dependances\\
+Connecteur Spark/Kafka & \code{spark-sql-kafka-0-10_2.12:3.5.3} & Meme version Spark et Scala ; JAR disponible dans les jobs\\
+Driver PostgreSQL & JDBC PostgreSQL compatible Java 17 & Necessaire si ecriture JDBC ; alternative retenue \code{psycopg2} pour \code{foreachPartition}\\
+\bottomrule
+\end{tabularx}
+Les tags Spark, Hadoop et Kafka figurent dans les catalogues publics. \textbf{Cela ne remplace pas un test de demarrage} : Ayman doit tester \code{docker compose config}, la disponibilite des images, les roles et les healthchecks, puis enregistrer les \emph{digests} finaux dans \code{docs/runtime-lock.md}. Aucun assistant ne change de version de Spark sans reecrire et revalider les deux contrats Spark/Kafka et ML.
+
+\begin{warningbox}
+\textbf{Budget de ressources indicatif :} machine avec Docker Desktop + WSL2, 16 Go RAM \emph{au minimum envisageable}, 24 Go recommandes, 4 coeurs et environ 20 Go de disque libre. Ce ne sont \textbf{pas} des garanties de performance : les limites et caches des conteneurs seront mesures sur chaque poste. Eviter de lancer simultanement l'entrainement lourd et tous les jobs streaming sur une machine limitee.
+\end{warningbox}
+
+\subsection{Adresses reseau et ports figes}
+\begin{tabularx}{\linewidth}{@{}p{30mm}p{46mm}Y@{}}
+\toprule
+\textbf{Service} & \textbf{Adresse \emph{interne Docker}} & \textbf{Acces hote / usage}\\\midrule
+Kafka & \code{kafka:9092} & \code{localhost:29092} (bootstrap externe)\\
+Spark master & \code{spark://spark-master:7077} & \code{http://localhost:8080} UI\\
+HDFS RPC & \code{hdfs://namenode:8020} & Aucun acces RPC hote requis\\
+HDFS UI & \code{namenode:9870} & \code{http://localhost:9870}\\
+PostgreSQL & \code{postgres:5432} & \code{localhost:5432} si port libre\\
+Streamlit & \code{dashboard:8501} & \code{http://localhost:8501}\\
+\bottomrule
+\end{tabularx}
+\textbf{Kafka listeners :} annonce \code{kafka:9092} a l'interieur du reseau et \code{localhost:29092} aux clients hote. Un conteneur \emph{n'utilise jamais} \code{localhost:29092} pour joindre Kafka ; un producteur hote ne recoit pas \code{kafka:9092} comme adresse de broker resoluble. Un seul broker = replication Kafka 1 ; ne pas confondre avec la replication \textbf{HDFS 2} imposee.
+
+\section{Contrat d'evenement partage : version 1}
+\subsection{Semantique et identite}
+Un evenement represente \textbf{une ligne de capteurs d'un moteur a un cycle donne}. Le topic est \code{engine.measurements.v1}. La cle Kafka est \code{fd001:<source_split>:<engine_id>} afin de conserver l'ordre d'un meme moteur dans une meme partition. Le schema \code{event.schema.json} est versionne \code{schema_version=1}. Le producteur separe strictement deux sous-ensembles \code{train} et \code{test} ; les moteurs \code{train:1} et \code{test:1} sont \emph{differents}.
+
+\begin{tabularx}{\linewidth}{@{}p{35mm}p{22mm}Y@{}}
+\toprule
+\textbf{Champ JSON} & \textbf{Type} & \textbf{Contrainte / interpretation}\\\midrule
+\code{schema_version} & integer & Obligatoire, egal a \code{1}\\
+\code{dataset} & string & Toujours \code{NASA-CMAPSS-FD001}\\
+\code{source_split} & string & Enum \code{train}|\code{test}\\
+\code{run_id} & string UUID & Identifiant de la session de replay, nouveau a chaque lancement ; stable pendant une session\\
+\code{event_id} & string & \code{fd001:<split>:<engine_id>:<cycle>}, stable d'un replay a l'autre\\
+\code{engine_id} & integer & Identifiant du moteur \(\geq 1\) dans le split\\
+\code{cycle} & integer & Compteur de cycles \(\geq 1\), croissant dans chaque moteur\\
+\code{event_ts} & ISO 8601 UTC & Heure \emph{simulee} associee a l'evenement\\
+\code{published_at} & ISO 8601 UTC & Heure effective de publication du message Kafka\\
+\code{op_setting_1..3} & double & Trois mesures de reglage du fonctionnement\\
+\code{sensor_01..21} & double & Vingt-et-une mesures de capteurs ; toutes requises\\
+\bottomrule
+\end{tabularx}
+Le compteur \code{cycle} et les capteurs sont les seules mesures metier ; les timestamps sont une convention pedagogique. L'identifiant stable \code{event_id} est utilise pour detecter les doublons logiques et \code{run_id} permet une demonstration et une reprise idempotentes dans la meme session. Un \code{event_id} peut donc reapparaitre dans des \code{run_id} differents.
+
+\subsection{Exemple de payload (synthetique uniquement)}
+L'exemple suivant montre la \emph{forme}, pas de vraies mesures NASA ; tous les capteurs doivent etre presents dans les fichiers reels. L'ordre des cles JSON est libre, mais leurs types et noms ne le sont pas.
+\begin{lstlisting}
+{
+  "schema_version": 1,
+  "dataset": "NASA-CMAPSS-FD001",
+  "source_split": "test",
+  "run_id": "10000000-0000-4000-8000-000000000001",
+  "event_id": "fd001:test:1:100",
+  "engine_id": 1,
+  "cycle": 100,
+  "event_ts": "2026-11-21T10:00:00Z",
+  "published_at": "2026-11-21T17:00:00Z",
+  "op_setting_1": 0.0, "op_setting_2": 0.0,
+  "op_setting_3": 100.0,
+  "sensor_01": 1.0,  "sensor_02": 2.0,
+  "sensor_03": 3.0,  "sensor_04": 4.0,
+  "sensor_05": 5.0,  "sensor_06": 6.0,
+  "sensor_07": 7.0,  "sensor_08": 8.0,
+  "sensor_09": 9.0,  "sensor_10": 10.0,
+  "sensor_11": 11.0, "sensor_12": 12.0,
+  "sensor_13": 13.0, "sensor_14": 14.0,
+  "sensor_15": 15.0, "sensor_16": 16.0,
+  "sensor_17": 17.0, "sensor_18": 18.0,
+  "sensor_19": 19.0, "sensor_20": 20.0,
+  "sensor_21": 21.0
+}
+\end{lstlisting}
+\subsection{Regles obligatoires de validation}
+\begin{enumerate}
+\item \code{source_split} dans \code{train,test}, \code{schema_version=1}, 21 capteurs, trois settings, valeurs finies, \code{cycle}>0 et \code{engine_id}>0.
+\item Le producteur lit les colonnes 26 dans l'ordre du dataset ; il n'invente pas de feature cible ou de RUL dans le message.
+\item Le \code{event_id} n'utilise \emph{pas} de \code{run_id}; il est deterministe. Un relecture du meme CSV reproduit les memes \code{event_id}.
+\item \code{event_ts} est calcule a partir d'une origine de simulation UTC declaree et du cycle (par exemple \(t_0+\mathrm{cycle}\times 60\,s\)); l'origine est figee pour une session. \code{published_at} est le vrai timestamp UTC du producteur.
+\item Les messages invalides ne doivent pas faire tomber le job sans journalisation. Comptage d'erreurs et stockage de diagnostics dans les logs ; ne jamais inserer d'evenement invalide dans les tables ML.
+\item Traitement des moteurs \emph{en ordre par cle}, mais intercalage inter-moteurs autorise ; \code{speed} configurable pour replay accelere ou a debit humain.
+\end{enumerate}
+
+\section{Contrats HDFS, Spark et PostgreSQL}
+\subsection{Espaces HDFS fixes}
+\begin{lstlisting}
+hdfs://namenode:8020/smartpredict/
+  bronze/engine_events/          # Parquet Kafka -> HDFS
+  silver/train_labeled/          # Donnees train preparees / cible RUL
+  gold/batch_kpis/               # KPI agreges par Spark SQL
+  reference/test_rul/            # RUL_FD001 importe et verifie
+  models/rul_pipeline/v001/      # PipelineModel Spark ML
+  models/metadata/v001/          # manifest.json, metrics.json
+  checkpoints/archive_v1/       # Checkpoint streaming archive
+  checkpoints/inference_v1/     # Checkpoint streaming inference
+\end{lstlisting}
+Le \code{fs.defaultFS} est \code{hdfs://namenode:8020}, \code{dfs.replication=2}. Les repertoires \code{checkpoints} ne sont jamais effaces en cours de reprise. Les volumes Docker nommes sont \code{hdfs_nn_data}, \code{hdfs_dn1_data}, \code{hdfs_dn2_data}; chaque DataNode a son \emph{propre} volume. Les modeles et checkpoints sont accessibles depuis les deux workers via les fichiers de configuration Hadoop montes dans les images Spark.
+
+\begin{notebox}
+\textbf{Politique bronze/silver.} Bronze stocke les messages utiles valides en \emph{append} Parquet (on conserve les evenements et leurs \code{run_id}, y compris les replays). Les scripts batch utilisent \code{dropDuplicates([source_split, engine_id, cycle])} \emph{apres} validation des event IDs, pour produire une vue logique unique par moteur/cycle. Ne jamais entrainer directement sur toutes les relectures bronze sans deduplication. \code{silver/train_labeled} est reconstruit proprement et versionne a partir d'un snapshot explicite.
+\end{notebox}
+
+\subsection{Travaux Spark et garanties de deploiement}
+\begin{tabularx}{\linewidth}{@{}p{26mm}p{44mm}Y@{}}
+\toprule
+\textbf{Job} & \textbf{Entree} & \textbf{Sortie / regle}\\\midrule
+\code{archive.py} & Kafka \code{engine.measurements.v1} & HDFS bronze Parquet, partitionnement \code{source_split}, checkpoint \code{archive_v1}\\
+\code{prepare.py} & Bronze + RUL de reference & HDFS silver ; labels du \code{train} uniquement\\
+\code{kpis.py} & HDFS bronze/silver & HDFS gold et table PostgreSQL \code{batch_kpis}\\
+\code{train_models.py} & HDFS silver & Comparaison de 3 Spark ML pipelines, tuning GBT, sauvegarde modele HDFS\\
+\code{evaluate.py} & HDFS bronze test + \code{RUL_FD001} & Scores test officiels apres gel du modele\\
+\code{inference.py} & Kafka + \code{PipelineModel} HDFS & PostgreSQL \code{predictions}, checkpoint \code{inference_v1}\\
+\bottomrule
+\end{tabularx}
+Chaque job utilise \code{SparkSession.builder.master("spark://spark-master:7077")} ou passe \code{--master spark://spark-master:7077} a \code{spark-submit}. La \emph{preuve} de distribution est une capture de l'UI affichant 2 workers enregistres et une execution repartie, plus la sortie \code{spark.sparkContext.master}. Ce seul appel ne prouve pas que toutes les partitions utilisent les deux workers ; inspecter aussi les executors et les stages.
+
+\subsection{Tables PostgreSQL : DDL contractuel}
+\begin{lstlisting}[language=SQL]
+CREATE TABLE IF NOT EXISTS predictions (
+  run_id UUID NOT NULL,
+  event_id TEXT NOT NULL,
+  model_version TEXT NOT NULL,
+  source_split TEXT NOT NULL CHECK (source_split IN ('train','test')),
+  engine_id INTEGER NOT NULL CHECK (engine_id > 0),
+  cycle INTEGER NOT NULL CHECK (cycle > 0),
+  event_ts TIMESTAMPTZ NOT NULL,
+  published_at TIMESTAMPTZ NOT NULL,
+  predicted_at TIMESTAMPTZ NOT NULL,
+  predicted_rul_cycles DOUBLE PRECISION NOT NULL,
+  health_status TEXT NOT NULL
+      CHECK (health_status IN ('HEALTHY','WARNING','CRITICAL')),
+  PRIMARY KEY (run_id, event_id, model_version)
+);
+CREATE INDEX IF NOT EXISTS idx_prediction_latest
+  ON predictions(run_id, engine_id, cycle DESC);
+CREATE INDEX IF NOT EXISTS idx_prediction_time
+  ON predictions(predicted_at DESC);
+
+CREATE TABLE IF NOT EXISTS batch_kpis (
+  snapshot_id TEXT NOT NULL,
+  metric_name TEXT NOT NULL,
+  dimension_name TEXT NOT NULL DEFAULT 'all',
+  dimension_value TEXT NOT NULL DEFAULT 'all',
+  metric_value DOUBLE PRECISION NOT NULL,
+  computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (snapshot_id, metric_name, dimension_name,
+               dimension_value)
+);
+CREATE TABLE IF NOT EXISTS model_registry (
+  model_version TEXT PRIMARY KEY,
+  model_hdfs_uri TEXT NOT NULL,
+  feature_schema_hash TEXT NOT NULL,
+  algorithm TEXT NOT NULL,
+  validation_rmse DOUBLE PRECISION,
+  test_rmse DOUBLE PRECISION,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+\end{lstlisting}
+\textbf{Idempotence :} le writer applique \code{INSERT ... ON CONFLICT (run_id,event_id,model_version) DO UPDATE} ou \code{DO NOTHING}, de facon documentee. Deux executions du meme micro-batch ne creent pas de doublons. Les reconstructions complets utilisent un nouveau \code{run_id}, ce qui garde les sessions distinctes pour le dashboard. Les requetes UI choisissent par defaut le \textbf{dernier run test} ; elles n'additionnent pas naivement tous les replays.
+
+\subsection{Contrat du calcul des statuts}
+\begin{tabularx}{\linewidth}{@{}p{30mm}Y@{}}
+\toprule
+\textbf{Statut} & \textbf{Regle sur la prediction \(\widehat{RUL}\), cycles}\\\midrule
+\code{CRITICAL} & \(\widehat{RUL}\le 20\)\\
+\code{WARNING} & \(20 < \widehat{RUL}\le 50\)\\
+\code{HEALTHY} & \(\widehat{RUL}>50\)\\
+\bottomrule
+\end{tabularx}
+Les valeurs du modele sont bornees \(\max(0,\min(125,\widehat{RUL}))\) \emph{avant} insertion en base et attribution du statut. Les seuils sont des conventions \emph{demo}, pas des seuils certifies de maintenance. Le dashboard affiche la version de modele, l'horodatage de prediction et l'unite en cycles.
+
+\section{Conception analytique batch et Spark ML}
+\subsection{Indicateurs SQL obligatoires}
+Reda implemente les KPI suivants sur un snapshot HDFS logique deduplique : (KPI-01) nombre total de mesures par split ; (KPI-02) nombre distinct de moteurs ; (KPI-03) longueur min, moyenne, mediane et max de trajectoires train ; (KPI-04) moyenne/ecart-type d'au moins cinq capteurs par tranche de cycle ; (KPI-05) pourcentage de valeurs manquantes et erreurs de qualite ; (KPI-06) nombre de moteurs train par bande de RUL sur le silver. Les resultats sont ecrits en Parquet \code{gold/batch_kpis} puis publies dans \code{batch_kpis} avec un \code{snapshot_id} stable (hash/provenance) et \code{ON CONFLICT}.
+
+\subsection{Vecteur de features fixe en V1}
+\[
+X= [\,\mathrm{cycle},\;\mathrm{op\_setting\_1},\;\mathrm{op\_setting\_2},\;\mathrm{op\_setting\_3},\;\mathrm{sensor\_01},\ldots,\mathrm{sensor\_21}\,].
+\]
+Exactement \textbf{25 variables}, dans cet ordre, de type double lors de l'entree ML. \code{engine_id} sert au groupement et au diagnostic mais n'est \emph{pas} une feature : ceci evite d'apprendre une correspondance arbitraire entre identifiants et duree de vie. Les colonnes \code{target_rul}, \code{source_split}, \code{run_id}, \code{event_ts}, \code{published_at} et \code{event_id} sont \textbf{exclues} du vecteur. La chaine sauvegardee contient les transformations apprises en entrainement, et l'ordre des colonnes est enregistre comme liste et SHA-256 dans \code{manifest.json}.
+
+\subsection{Trois candidats + baseline + tuning}
+\begin{tabularx}{\linewidth}{@{}p{34mm}Yp{34mm}@{}}
+\toprule
+\textbf{Candidat} & \textbf{Objectif / preparation} & \textbf{Protocole}\\\midrule
+B0 : constante mediane & Reference na\"ive : mediane RUL du train, sans features & MAE / RMSE validation\\
+M1 : LinearRegression & Spark ML \code{Imputer} + \code{VectorAssembler} + regresseur regularise & Valeurs initiales fixes\\
+M2 : RandomForestRegressor & Spark ML, meme vecteur / split et seed & Valeurs initiales fixes\\
+M3 : GBTRegressor & Spark ML, meme vecteur / split et seed & \textbf{Grille 8 configurations}\\
+\bottomrule
+\end{tabularx}
+Grille de tuning figee de \code{GBTRegressor} : \code{maxDepth} \(\in\{3,5\}\), \code{maxIter} \(\in\{30,60\}\), \code{stepSize} \(\in\{0.05,0.10\}\), soit \(2\times2\times2=8\) configurations. La grille peut etre executee en sequence pour respecter la RAM disponible. Pour toutes les comparaisons, fixer \code{seed=42} et consigner versions, durees d'entrainement et nombre d'observations. Si la machine ne peut executer une combinaison, rapporter l'echec et le motif, sans falsifier une execution.
+
+\subsection{Decoupage et protocole de validation}
+\begin{enumerate}
+\item Trier les \textbf{100 moteurs de train} et separer deterministement les identifiants en 80 moteurs \emph{fit} et 20 moteurs \emph{validation}, avec \code{seed=42}, sans melanger les cycles d'un meme moteur entre groupes.
+\item Ajuster \code{Imputer} et chaque modele \emph{exclusivement} sur les lignes des 80 moteurs de fit ; \code{Pipeline} stocke ces etapes.
+\item Pour chaque moteur de validation, generer trois snapshots \emph{causaux} aux cycles \(\lfloor 0.60T_i\rfloor\), \(\lfloor 0.75T_i\rfloor\), \(\lfloor 0.90T_i\rfloor\), avec cible calculee depuis \(T_i\) pour l'evaluation uniquement. Les features du snapshot sont celles de sa ligne, pas du futur.
+\item Choisir les hyperparametres GBT en minimisant \textbf{RMSE sur ces snapshots de validation}. Rapporter aussi MAE et scores sur l'ensemble des cycles validation comme diagnostic \emph{secondaire}.
+\item Choisir le modele final parmi M1, M2 et M3 tune sur \textbf{RMSE validation}, en affichant B0 comme point de comparaison ; en cas d'egalite, preferer le modele le plus simple ou le plus rapide, selon une regle explicite.
+\item Refit du pipeline choisi sur la totalite des 100 moteurs de \code{train_FD001}, sans \emph{aucune} donnee officielle de test pendant la selection ; sauvegarde HDFS \code{v001}.
+\item Evaluer \textbf{une seule fois le modele gele} sur les \textbf{100 moteurs test}, au dernier cycle de chacun et avec les labels de \code{RUL_FD001}. Ecrire la table de resultats et l'interpretation, y compris limites.
+\end{enumerate}
+Ne pas utiliser \code{randomSplit} a la ligne pour definir train/validation, ni \code{TrainValidationSplit} Spark ML brut si celui-ci repartit aleatoirement des observations du \emph{meme moteur} entre fit et validation. Le tuning manuel par groupes est la reference V1.
+
+\subsection{Metriques et artefacts imposes}
+\[
+\mathrm{MAE}=\frac{1}{n}\sum_{k=1}^n|y_k-\widehat{y}_k|,
+\qquad
+\mathrm{RMSE}=\sqrt{\frac{1}{n}\sum_{k=1}^n(y_k-\widehat{y}_k)^2}.
+\]
+Les deux mesures sont en \textbf{cycles}. Le tableau final comprend une ligne B0, M1, M2, M3 et M3 tune ; on peut reporter \(R^2\) en complement, en indiquant clairement l'ensemble concerne. Pas de chiffres inventes dans la documentation. Les fichiers obligatoires sont : \code{PipelineModel} Spark en HDFS, \code{manifest.json} (features, versions, target cap, algorithme, hyperparametres, URI, seed, hash du dataset), \code{metrics.json} (scores validation/test), \code{comparison.csv} (tous les candidats), \code{predictions_test.csv} (100 points).
+
+\subsection{Contrat du manifeste du modele V1}
+Le chemin \code{hdfs://namenode:8020/smartpredict/models/metadata/v001/manifest.json} contient \textbf{au minimum} les cles suivantes, avec ces noms exacts. Le contenu ci-dessous est un \emph{exemple de structure}, pas un entrainement effectue. Les champs des metriques sont remplis uniquement apres execution reelle.
+\begin{lstlisting}
+{
+  "schema_version": 1,
+  "model_version": "v001",
+  "model_hdfs_uri": "hdfs://namenode:8020/smartpredict/models/rul_pipeline/v001/",
+  "algorithm": "GBTRegressor",
+  "target_name": "target_rul",
+  "target_cap_cycles": 125,
+  "feature_columns_uri": "contracts/feature_columns.json",
+  "feature_schema_hash": "<sha256-of-canonical-feature-list>",
+  "split_seed": 42,
+  "validation_metric": "rmse",
+  "trained_at_utc": "<actual-ISO-8601-time>",
+  "train_dataset_sha256": "<actual-dataset-hash>"
+}
+\end{lstlisting}
+La valeur \code{algorithm} est \emph{l'algorithme reellement choisi}, pas necessairement GBT ; l'exemple GBT n'impose pas le resultat de la comparaison. \code{feature_columns.json} contient exactement l'objet \code{{"schema_version":1,"features":[...]}} avec les \textbf{25 features} de l'ordre fixe dans la section 6.2. Le hash SHA-256 est calcule sur la representation JSON canonique de cette liste (UTF-8, sans espaces superflus, separateurs stables). Le modele Spark doit produire la colonne \code{prediction} (double). Ayman valide \code{schema_version}, \code{model_version}, \code{feature_schema_hash} et \code{model_hdfs_uri} avant de traiter Kafka ; si une de ces valeurs est incompatible, le job echoue explicitement, sans fallback heuristique.
+
+\section{Streaming et restitution : definition executable}
+\subsection{Voie froide : Kafka vers HDFS}
+Le job \code{streaming/archive.py} est un \emph{Spark Structured Streaming} qui : (1) se connecte a Kafka via le connecteur exact Spark 3.5.3/Scala 2.12 ; (2) decode le JSON avec un schema explicite ; (3) rejette/logge les lignes invalides ; (4) enrichit avec le timestamp d'ingestion Kafka et la provenance ; (5) ecrit les evenements valides en Parquet sur le chemin bronze avec checkpoint HDFS exclusif \code{archive_v1}. L'archive est demarree \textbf{avant} le premier replay train, et sa progression est verifiee avant tout entrainement.
+
+Le flux bronze peut contenir des duplications de relecture : c'est la \emph{couche silver} qui assure la vue logique unique. Le nom et le schema des colonnes Parquet sont fixes par \code{contracts/event.schema.json}. Ne pas utiliser une suppression de doublons streaming avec fenetre temporelle susceptible d'eliminer des cycles simules a cause des watermarks ; ne pas effacer le checkpoint pour corriger un bug sans plan de replay et documentation.
+
+\subsection{Voie chaude : Kafka vers modele et PostgreSQL}
+Le job \code{streaming/inference.py} doit refuser de demarrer s'il manque \code{models/rul_pipeline/v001} ou si son manifeste est incompatible avec le schema d'evenement. Il \textbf{charge \code{PipelineModel} au demarrage}, consomme Kafka, valide le meme schema, calcule les predictions sur des micro-batches distribues via \code{model.transform(batch_df)}, borne le RUL, classe le statut et ecrit vers PostgreSQL. Les traitements de modelisation sur de gros volumes ne doivent \textbf{pas} etre transferes via un \code{toPandas()} non borne vers le driver.
+
+L'ecriture peut etre faite par \code{foreachBatch} puis \code{foreachPartition} avec connexions PostgreSQL par partition, transactions et \code{ON CONFLICT}; \code{psycopg2} doit etre installe sur les images de \textbf{workers} et du client. Toute exception d'ecriture doit echouer le micro-batch pour provoquer une nouvelle tentative ; le mecanisme d'upsert rend cette nouvelle tentative idempotente. Les credentials sont des variables d'environnement des conteneurs, jamais des constantes du script.
+
+\subsection{Duree de vie des checkpoints, offsets et sessions}
+\begin{itemize}
+\item Checkpoints \textbf{distincts} pour archive et inference. Les deux jobs ne reutilisent jamais un meme dossier de checkpoint.
+\item La requete archive debute au \code{earliest} \emph{sans checkpoint existant} pour reconstituer train ; la requete inference utilise \code{latest} \emph{sans checkpoint} et est demarree \textbf{avant le replay test} ; les checkpoints existants priment sur \code{startingOffsets}.
+\item La retention Kafka du demo doit etre suffisante pour la periode de replay/reprise (par convention 7 jours). Un checkpoint ne peut restaurer des donnees qui ont expire de Kafka.
+\item Redemarrer le \emph{meme} job avec son checkpoint et le meme code/schema ; ne pas multiplier les copies de la meme requete sur un meme checkpoint.
+\item Si l'on souhaite rejouer integralement le test, lancer un nouveau \code{run_id}. Le dashboard filtre la session courante et ne compte pas les anciennes comme des nouvelles predictions.
+\end{itemize}
+
+\subsection{Dashboard Streamlit : ecrans et rafraichissement}
+Le dashboard expose obligatoirement : (1) nombre de moteurs surveilles du dernier run ; (2) statut actuel par moteur ; (3) courbe RUL estime par cycle ; (4) liste des moteurs CRITICAL/WARNING avec dernier cycle et date de prediction ; (5) indicateurs batch historiques depuis \code{batch_kpis} ; (6) modele/version utilise(e) ; (7) latence \(\mathrm{predicted\_at}-\mathrm{published\_at}\) en secondes, calculee de bout en bout comme indicateur \emph{indicatif}. Rafraichissement automatique configure a \textbf{5 s} et selection d'une session \code{run_id}. Les widgets ne lancent pas de ML eux-memes et n'interpretent pas le RUL comme une heure/calendrier.
+
+\section{Structure definitive du depot et propriete des fichiers}
+\subsection{Arborescence contractuelle}
+\begin{lstlisting}
+smartpredict/
+  .env.example                    [AYMAN]
+  .gitignore                      [AYMAN]
+  docker-compose.yml              [AYMAN]
+  README.md                       [INTEGRATION COMMUNE]
+  requirements.txt                [REDA: verrouillage Python]
+  contracts/
+    event.schema.json             [REDA]
+    feature_columns.json          [REDA]
+    README.md                      [REDA]
+  infra/
+    Dockerfile.spark               [AYMAN]
+    Dockerfile.hadoop              [AYMAN, si necessaire]
+    Dockerfile.dashboard           [AYMAN, avec dependances REDA]
+    hadoop/core-site.xml           [AYMAN]
+    hadoop/hdfs-site.xml           [AYMAN]
+    spark/spark-defaults.conf      [AYMAN]
+    kafka/                         [AYMAN]
+    healthchecks/                  [AYMAN]
+  ingestion/
+    __init__.py                    [AYMAN]
+    producer.py                    [AYMAN]
+    dataset_reader.py              [AYMAN]
+  streaming/
+    __init__.py                    [AYMAN]
+    archive.py                     [AYMAN]
+    inference.py                   [AYMAN]
+    postgres_writer.py             [AYMAN]
+  batch/
+    __init__.py                    [REDA]
+    data_quality.py                [REDA]
+    prepare.py                     [REDA]
+    kpis.py                        [REDA]
+    publish_kpis.py                [REDA]
+    train_models.py                [REDA]
+    evaluate.py                    [REDA]
+  database/
+    schema.sql                     [REDA]
+    queries.sql                    [REDA]
+  dashboard/
+    app.py                         [REDA]
+    data_access.py                 [REDA]
+  tests/
+    test_event_contract.py         [REDA]
+    test_rul_targets.py            [REDA]
+    test_ml_splits.py              [REDA]
+    test_replay_producer.py        [AYMAN]
+    test_streaming_sink.py         [AYMAN]
+    test_integration_e2e.py        [COMMUN, sur branche integration]
+  scripts/
+    bootstrap.sh                   [AYMAN]
+    run_train_replay.sh            [AYMAN]
+    run_batch.sh                   [REDA]
+    run_evaluate.sh                [REDA]
+    run_test_replay.sh             [AYMAN]
+    smoke_test.sh                  [COMMUN]
+  docs/
+    architecture_smartpredict.tex [COMMUN, texte de reference]
+    decisions.md                   [REDA]
+    runtime-lock.md                [AYMAN]
+    data-card.md                   [REDA]
+    runbook.md                     [AYMAN]
+    validation-matrix.md           [COMMUN]
+    contributions.md               [COMMUN]
+    report/                        [COMMUN, rapport final <= 20p]
+  data/raw/                        [LOCAL, IGNORE GIT]
+  models/local/                    [LOCAL, IGNORE GIT]
+  .github/workflows/               [COMMUN, si CI]
+\end{lstlisting}
+La mention \code{[COMMUN]} signifie un changement dans une branche d'integration revise par les deux, \emph{pas} deux modifications simultanees d'un meme fichier. Les binaires du dataset, checkpoints, secrets, caches Spark et artefacts generees ne sont pas commits. Les modeles restent dans HDFS pendant l'execution ; un export de petite taille peut etre ajoute comme artefact GitHub Release si autorise et documente, sans stocker les grands binaires dans \code{git}.
+
+\subsection{Proprietaires exclusifs et regles d'interface}
+\begin{tabularx}{\linewidth}{@{}p{28mm}Y Y@{}}
+\toprule
+\textbf{Domaine} & \textbf{Ayman / Claude Code} & \textbf{Reda / Codex}\\\midrule
+Infra & Ecrit compose, images, reseau, Spark/HDFS/Kafka, checks de sante & Consomme la configuration ; ne la modifie pas directement\\
+Ingestion & Lit train/test, construit evenement V1, publie Kafka & Valide le schema et le dataset avec tests\\
+Stockage froid & Kafka vers HDFS Bronze, checks & Lit HDFS Bronze ; prepare Silver et KPI Gold\\
+ML & Attend et charge le \code{PipelineModel} conforme & Entraine trois Spark ML, tune, selectionne, exporte le pipeline\\
+Streaming chaud & Construit Spark inference et writer PostgreSQL & Definit SQL, model manifest et regles RUL/statuts\\
+Restitution & Garantit compatibilite writer et DB & Ecrit schema, requetes et application Streamlit\\
+Tests & Kafka, infra, streaming, reprise & Data quality, ML, SQL, UI ; E2E = deux\\
+Documentation & Infra, Kafka, HDFS, logs et commandes & Dataset, KPI, ML, comparaison, limites ; bilan = deux\\
+\bottomrule
+\end{tabularx}
+
+\subsection{Interface stricte entre les deux assistants}
+\begin{enumerate}
+\item \textbf{Fichier de contrat :} \code{contracts/event.schema.json} est cree par Reda au debut et approuve par Ayman ; aucun ajout ou renommage de champ sans PR de contrat.
+\item \textbf{Fonction producteur :} \code{python -m ingestion.producer --split train|test --speed <float> [--run-id <uuid>] [--engine-ids 1,2,3]} lit le fichier correspond au split, publie sur le topic convenu et termine avec un recapitulatif des messages.
+\item \textbf{Script cold :} \code{spark-submit streaming/archive.py} cree la vue brute Parquet ; ne calcule \textbf{aucun RUL}.
+\item \textbf{Script ML :} \code{spark-submit batch/train_models.py --version v001} ecrit le \code{PipelineModel} HDFS, manifeste et scores. Un chargement ultérieur par Spark doit produire un champ \code{prediction} numerique.
+\item \textbf{Script hot :} \code{spark-submit streaming/inference.py --model-version v001} charge le modele et expose le champ \code{prediction} borne comme \code{predicted_rul_cycles} dans SQL.
+\item \textbf{SQL :} le writer Ayman utilise exactement les noms et contraintes de \code{database/schema.sql} Reda ; tous les schemas sont appliques avant demarrage inference.
+\item \textbf{Tests mutuels :} Reda fournit un pipeline Spark ML de test \emph{minuscule} avec le schema de features ; Ayman fournit un echantillon de messages conforme et un Parquet bronze accessible sur cluster. Aucun mock ne constitue une preuve E2E finale.
+\end{enumerate}
+
+\section{Repartition, dependances et execution sur deux machines}
+\subsection{Mission Ayman : plateforme et circulation des evenements}
+\begin{longtable}{@{}p{15mm}p{80mm}p{54mm}@{}}
+\toprule
+\textbf{Lot} & \textbf{Actions exclusives sur son laptop} & \textbf{Definition de termine (preuve)}\\\midrule
+\endhead
+A1 & Creer l'infrastructure Compose, images Spark/Hadoop, reseau, volumes, variables, healthchecks & \code{docker compose config} valide ; services \code{healthy}\\
+A2 & Demarrer NameNode + 2 DataNodes, replication 2 et persistance & Deux DataNodes visibles et \code{hdfs fsck} replication 2\\
+A3 & Demarrer Spark master + 2 workers, executer smoke Spark distribue & Deux workers UI + stage/repartition executee\\
+A4 & Kafka KRaft, topic V1, listeners hote/interne, script bootstrap & Topic lisible depuis un conteneur Spark et depuis hote\\
+A5 & Lire les CSV NASA avec parse valide, generer payload/schema V1 ; producer replay & \code{test_replay_producer.py}, comptes train/test exacts\\
+A6 & Code Spark Structured Streaming archive Kafka vers HDFS Parquet et checkpoint & Fichiers HDFS reapparaissent apres reprise sans perte logique\\
+A7 & Code Spark inference ; verifier \code{PipelineModel.load} ; writer SQL idempotent & Predictions visibles en SQL, pas de \code{toPandas()} massif\\
+A8 & Tester interruptions de jobs, logs, ressources, config reseau & Journal de reprise, commandes reproductibles\\
+A9 & Rediger docs infrastructure et prouver commits personnels & PRs et captures d'ecran UI/terminal\\
+\bottomrule
+\end{longtable}
+\textbf{Interdiction de responsabilite :} Ayman ne reecrit pas les algorithmes de Reda, le schema SQL ou la liste de features. Il peut signaler une erreur sous forme d'issue ou PR de changement de contrat, puis attend approbation explicite pour modifier l'interface.
+
+\subsection{Mission Reda : analytique, ML et restitution}
+\begin{longtable}{@{}p{15mm}p{80mm}p{54mm}@{}}
+\toprule
+\textbf{Lot} & \textbf{Actions exclusives sur son laptop} & \textbf{Definition de termine (preuve)}\\\midrule
+\endhead
+R1 & Creer schema evenement et feature columns (gel V1) ; data-card NASA & Tests validation d'evenements + sources tracees\\
+R2 & Lire HDFS bronze, dedupliquer, controles qualite ; ecrire Silver train & 20\,631 lignes logiques train si dataset entier ingere\\
+R3 & Calcul KPI Spark SQL, ecriture HDFS gold + table PostgreSQL & Tables KPI avec valeurs lisibles et source identifiable\\
+R4 & Construire RUL train correct et decoupage par moteurs \(80/20\) & Tests anti-fuite, RUL=0 au dernier cycle train\\
+R5 & Entrainer LinearRegression, RandomForest, GBT + baseline & Tableau scores validation avec trois algorithmes et baseline\\
+R6 & Executer 8 combinaisons de tuning GBT et choisir modele final & Configurations, durees, scores, algorithme retenu\\
+R7 & Refit train complet, sauvegarder PipelineModel et manifeste HDFS & \code{PipelineModel.load} charge depuis conteneur Ayman\\
+R8 & Evaluer officiel test FD001 avec \code{RUL_FD001} & 100 predictions terminales et RMSE/MAE valides\\
+R9 & SQL \code{schema.sql}, requetes, dashboard Streamlit 5s, donnees d'essai & Flux predictions visible, UI actualisee, filtrage par run\\
+R10 & Docs metier/ML, comparaison/tuning, contributions et PRs & Tables resultats reels + commits personnels\\
+\bottomrule
+\end{longtable}
+\textbf{Interdiction de responsabilite :} Reda ne reconfigure pas les images Docker/Kafka/HDFS d'Ayman et ne remplace pas Spark ML par XGBoost/sklearn, meme si Codex le suggere. Les versions, chemins, noms de champs et tables restent geles.
+
+\subsection{Travail commun, sans doublon de commits}
+\begin{itemize}
+\item \textbf{Architecture et validation des contrats} : lecture croisee de la fiche et de ce cahier ; accord des deux sur les ADR avant generation de code.
+\item \textbf{Points d'integration} : au minimum une fois par semaine (fiche) ; vu la presentation proche, planifier un point quotidien de 15 minutes pendant les derniers jours.
+\item \textbf{Tests croises} : Ayman demarre le cluster et fait tourner les jobs de Reda ; Reda execute les tests de ses modules avec l'infra d'Ayman. L'un ne se contente pas de tester sa seule partie.
+\item \textbf{Documentation} : chacun redige ses preuves et explique le travail de l'autre ; relecture mutuelle des sections essentielles du rapport.
+\item \textbf{Demonstration} : Ayman presente infra/streaming et Reda presente donnees/ML/dashboard ; chacun doit pouvoir expliquer le pipeline entier.
+\end{itemize}
+
+\subsection{Matrice RACI simplifiee}
+\begin{tabularx}{\linewidth}{@{}Yp{19mm}p{19mm}@{}}
+\toprule
+\textbf{Objet} & \textbf{Ayman} & \textbf{Reda}\\\midrule
+Docker, Kafka, Spark, HDFS & R & C\\
+Schema evenement / features & C & R\\
+Producer / archive HDFS & R & C\\
+Silver, Spark SQL, Spark ML & C & R\\
+Hot streaming / writer SQL & R & C\\
+DDL PostgreSQL / dashboard & C & R\\
+Integration E2E, rapport, video & R & R\\
+\bottomrule
+\end{tabularx}
+\emph{R = realisation, C = consultation / relecture.} Les deux sont redevables de l'integration finale et de la comprehension complete du systeme.
+
+\section{Git et collaboration : preuve authentique des contributions}
+\subsection{Preparation GitHub}
+Le depot GitHub est cree par l'un des etudiants, puis l'autre est invite comme collaborateur avec acces en ecriture. \textbf{Chaque etudiant clone \emph{le meme depot} sur son ordinateur personnel} ; aucune copie de projet archivee par USB n'est consideree comme synchronisation principale. Chacun configure son propre auteur Git et son propre email associe a son compte GitHub (email public ou \code{noreply} configure par GitHub).
+\begin{lstlisting}[language=bash]
+git clone https://github.com/<owner>/smartpredict.git
+cd smartpredict
+git config user.name "Ayman"      # sur la machine d'Ayman
+# ou : git config user.name "Reda" sur la machine de Reda
+git config user.email "<email-github-du-contributeur>"
+git switch main
+git pull --ff-only origin main
+\end{lstlisting}
+Une seule branche principale \code{main}. Chaque lot est realise sur une branche \code{feature/ayman-...} ou \code{feature/reda-...} creee depuis le \code{main} actualise. Un contributeur pousse \emph{sa} branche, ouvre une pull request et demande une relecture a l'autre. Preferer un merge qui \textbf{conserve les auteurs des commits} plutot que squasher tous les travaux sous un seul commit. Ne jamais fabriquer des commits vides pour gonfler la contribution ; seuls les vrais developpements et corrections comptent.
+
+\subsection{Branches et jalons de fusion proposes}
+\begin{tabularx}{\linewidth}{@{}p{50mm}p{23mm}Y@{}}
+\toprule
+\textbf{Branche} & \textbf{Auteur} & \textbf{Contenu principal}\\\midrule
+\code{feature/reda-contracts-data} & Reda & Schema JSON, features, tests, data-card, SQL initial\\
+\code{feature/ayman-cluster} & Ayman & Compose, Spark 2 workers, HDFS 2 DN, Kafka, healthchecks\\
+\code{feature/ayman-ingestion-archive} & Ayman & Producer, replay, Spark Kafka vers Parquet\\
+\code{feature/reda-batch-kpis} & Reda & Bronze vers Silver, qualite, Spark SQL, KPI\\
+\code{feature/reda-sparkml} & Reda & Trois modeles, tuning, evaluation, export\\
+\code{feature/ayman-online-inference} & Ayman & Streaming chaud, inference, SQL upsert, reprise\\
+\code{feature/reda-dashboard} & Reda & UI, courbes, listes, auto-refresh\\
+\code{integration/e2e-final} & Les deux & Tests E2E, corrections de jointure, README, video\\
+\bottomrule
+\end{tabularx}
+\textbf{Dependances :} le contrat Reda (schema + DDL + features) doit etre fusionne \emph{avant} qu'Ayman fige son producteur et writer. Le modele Reda doit etre exporte \emph{avant} le test reel du job inference Ayman. Ayman peut avancer entre-temps avec des mocks pour verifications unitaires, mais la validation finale utilise uniquement des donnees et un modele reels.
+
+\subsection{Protocole de modification inter-equipes}
+\begin{enumerate}
+\item Ouvrir issue \code{CHANGE-XXX} mentionnant raison, composant, consequence, tests d'acceptation.
+\item Modifier d'abord ce document ou un fichier \code{contracts/} dans une PR contractuelle ; faire approuver par \textbf{les deux}.
+\item Mettre a jour les tests de contrat avant de modifier les fonctions d'implementation.
+\item Rebaser/merger \code{main} sur les deux postes, reexecuter les tests, puis seulement deployer.
+\item Conserver \code{schema_version=1} tant que le contrat reste compatible ; une incompatibilite impose une nouvelle version et une migration planifiee.
+\end{enumerate}
+\textbf{Jamais :} edition directe du \code{main}, force-push, changement de runtime implicite par assistant IA, secrets ou dataset binaires dans le depot, conflits resolus en supprimant le travail de l'autre.
+
+\section{Ordre de lancement et commandes de demonstration}
+\subsection{Conditions initiales}
+Requis : Docker Desktop/Compose (avec WSL2 sous Windows), Git, acces Internet initial pour images et dependances, ressources suffisantes. Tout peut tourner en conteneurs ; \textbf{aucune installation locale de Spark/Hadoop/Kafka sur les deux postes n'est requise}. Les noms ci-dessous constituent le \emph{contrat CLI} a implementer ; ils ne pretendent \textbf{pas} etre deja operationnels tant que le code n'existe pas.
+
+\begin{lstlisting}[language=bash]
+# 1 - Cloner et configurer
+cp .env.example .env
+# Modifier uniquement les valeurs et secrets locaux dans .env
+
+# 2 - Demarrer le socle distribue
+# Des healthchecks sont obligatoires avant de continuer
+docker compose up -d namenode datanode-1 datanode-2 \
+  spark-master spark-worker-1 spark-worker-2 kafka postgres
+
+# 3 - Creer topic et arborescence HDFS / DB
+docker compose run --rm spark-client bash scripts/bootstrap.sh
+
+# 4 - Demarrer voie froide AVANT le replay train
+docker compose --profile jobs up -d spark-archive
+
+# 5 - Alimenter HDFS a partir de la source train
+docker compose run --rm spark-client \
+  python -m ingestion.producer --split train --speed 0
+
+# 6 - Attendre fin d'archivage verifiee (scripts/smoke_test.sh)
+# puis calculer le Silver et les KPI et entrainer le ML
+docker compose run --rm spark-client bash scripts/run_batch.sh
+
+# 7 - Demarrer inference (PipelineModel v001 deja present)
+docker compose --profile jobs up -d spark-inference
+# Verifier que la requete Kafka est active AVANT publication
+
+# 8 - Rejouer TOUT le test pour remplir HDFS et evaluer
+# NE PAS interrompre ce replay et attendre l'archive complete
+docker compose run --rm spark-client \
+  python -m ingestion.producer --split test --speed 0
+# Attendre 13 096 lignes logiques dans bronze/test
+
+docker compose run --rm spark-client bash scripts/run_evaluate.sh
+
+# 9 - Demo : nouvelle session sur trois moteurs, cadence lente
+docker compose up -d dashboard
+docker compose run --rm spark-client \
+  python -m ingestion.producer --split test --engine-ids 1,2,3 --speed 25
+
+# 10 - Verifier Spark/HDFS/dashboard et les lignes PostgreSQL
+# 11 - Reprise : redemarrer un job sans effacer les checkpoints
+\end{lstlisting}
+Le parametre \code{--engine-ids 1,2,3} limite la publication aux moteurs listes, avec leur trajectoire complete ; omettre cet argument publie tous les moteurs du split. Le script \code{run_evaluate.sh} refuse de demarrer si la partie test n'est pas archivee entierement et charge les 100 etiquettes officielles depuis \code{RUL_FD001.txt} copie dans HDFS reference.
+
+Le parametre \code{--speed 0} signifie \textbf{aucune temporisation} (debit maximal) pour constituer le train ; \code{--speed 20} correspond a \textbf{20 messages/seconde} pour une demonstration fluide. Le nom \code{speed} est donc une \emph{cadence en messages par seconde}, non un multiplicateur temporel. Les scripts doivent suivre ces significations et documenter leur comportement reel. La preparation et l'entrainement batch ne commencent qu'apres verification des 20\,631 lignes train uniques dans HDFS. L'evaluation officielle ne commence qu'apres verification des 13\,096 lignes test uniques et des 100 labels RUL sur HDFS. Les scripts doivent sortir en erreur si ces conditions ne sont pas remplies.
+
+\subsection{Preuve de reproductibilite sur machine vierge}
+Une seconde machine realise une reproduction \emph{a partir du depot} : clone propre, generation d'un \code{.env}, telechargement ou installation documentee des fichiers NASA, \code{docker compose build}, demarrage socle, ingestion, verification HDFS, training Spark ML, test officiel, inference, SQL et dashboard. Ce parcours est plus fort qu'une simple capture d'ecran du poste ayant servi au developpement. Conserver \code{logs/} en local ou captures sans secrets ; publier seulement des traces nettoyees dans \code{docs/evidence/} si souhaitable.
+
+\section{Plan de tests, mesures et criteres de reception}
+\subsection{Tests unitaires et de contrat}
+\begin{longtable}{@{}p{16mm}p{85mm}p{48mm}@{}}
+\toprule
+\textbf{Test} & \textbf{Assertion precise} & \textbf{Pilote}\\\midrule
+\endhead
+T01 & Toutes les cles attendues du payload V1 ; 21 capteurs et 3 settings ; rejeter schema \(\ne1\) & Reda\\
+T02 & \code{event_id} stable et distinct entre train/test ; UUID \code{run_id} par session & Ayman\\
+T03 & Producer envoie un message Kafka valide et cle moteur constante & Ayman\\
+T04 & 100 moteurs train, 20\,631 lignes, 100 moteurs test, 13\,096 lignes sur fichiers verifies & Reda\\
+T05 & Train : dernier cycle de chaque moteur a RUL=0 ; toutes valeurs \([0,125]\) & Reda\\
+T06 & Test : RUL au dernier cycle = label officiel plafonne, et \textbf{pas} zero artificiel & Reda\\
+T07 & Aucun \code{engine_id} commun entre fit/validation (apres distinction du split) & Reda\\
+T08 & Les 25 features sont exactement les memes pour batch et streaming & Ayman/Reda\\
+T09 & Aucun label, \code{run_id} ni timestamp dans \code{features} & Reda\\
+T10 & PipelineModel est rechargable sur un \emph{nouveau} SparkSession & Reda/Ayman\\
+T11 & Quatre etats d'erreur : modele absent, mauvais schema, Kafka indisponible, SQL indisponible & Ayman\\
+T12 & Seuils : 20=CRITICAL, 50=WARNING, \(>50\)=HEALTHY & Ayman\\
+T13 & Deux upserts d'un meme tuple \code{(run_id,event_id,model_version)} produisent une seule ligne & Ayman\\
+T14 & KPI dedupliques si un replay du train a lieu deux fois & Reda\\
+T15 & UI ne mele pas deux \code{run_id}, rafraichissement actif & Reda\\
+\bottomrule
+\end{longtable}
+
+\subsection{Tests d'integration et preuves exigees}
+\begin{tabularx}{\linewidth}{@{}p{18mm}Yp{40mm}@{}}
+\toprule
+\textbf{Test} & \textbf{Procedure / critere de succes} & \textbf{Preuve a archiver}\\\midrule
+I01 & Cluster Spark : 1 master + 2 workers actifs, job distribue execute & UI Spark + stages\\
+I02 & HDFS : 1 NN + 2 DN, \code{dfs.replication=2} et \code{fsck} de fichiers Parquet & UI + sortie \code{fsck}\\
+I03 & Kafka : topic V1, messages valides du producer & Topic describe + exemple propre\\
+I04 & Voie froide : train replay termine ; 20\,631 lignes \emph{logiques} en HDFS & Spark SQL \code{count()}\\
+I05 & SQL : indicateurs Gold et table \code{batch_kpis} concordent & Select SQL + lecture HDFS\\
+I06 & ML : 3 Spark ML, baseline, 8 essais GBT, MAE/RMSE et \code{v001} HDFS & Tableau comparaison + manifest\\
+I07 & Evaluation : exactement 100 predictions test terminales, labels officiels corrects & CSV + metrics.json\\
+I08 & Voie chaude : replay test \(\rightarrow\) Kafka \(\rightarrow\) Spark ML \(\rightarrow\) PostgreSQL & Lignes avec model version\\
+I09 & Dashboard : courbe RUL et KPI visibles pendant replay ; rafraichissement 5s & Capture horodatee ou video\\
+I10 & Reprise : tuer/recreer \code{spark-archive} et \code{spark-inference} ; reprendre aux offsets checkpoints & Logs + absence doublons SQL\\
+I11 & Reproductibilite : meme scenario sur l'autre machine apres clone & Journal date + machine\\
+\bottomrule
+\end{tabularx}
+\textbf{Latence :} consigner p50, p95 et maximum de \code{predicted_at - published_at} uniquement pour les messages d'un \code{run_id} de demo, avec nombre d'echantillons et conditions de machine. Ne pas annoncer de SLA sans mesures. \textbf{Qualite ML :} consigner aussi les limites inherentes a FD001 (simulation, mode de panne unique, conditions d'exploitation limitees et abstraction du temps par cycle).
+
+\subsection{Check-list des livrables de la professeure}
+\begin{tabularx}{\linewidth}{@{}p{46mm}Y@{}}
+\toprule
+\textbf{Livrable} & \textbf{Definition de complet}\\\midrule
+GitHub & Deux auteurs identifiables, fichiers commentes, branches/PRs, pas de secrets\\
+Infra & Compose, Dockerfiles, configs, \code{.env.example}, dependencies figees, volumes persistants\\
+README & Preconditions, setup, donnees NASA, construction historique, entrainement, test, inference, dashboard\\
+Rapport final & Au maximum 20 pages ; toutes les rubriques imposees et tableau de \textbf{contributions reelles} d'Ayman et Reda\\
+Video & Environ \textbf{10 minutes}, metier, architecture, 3 modeles + tuning, pipeline actif, dashboard, contributions\\
+Preuves & Screenshots du cluster/distribution, HDFS rep2, checkpoint/reprise, SQL, modeles et scores reels\\
+\bottomrule
+\end{tabularx}
+
+\section{Calendrier et synchronisation}
+La fiche propose une progression pedagogique de semaines 1 a 7 et annonce les presentations la \textbf{semaine du 7 decembre}. A la date de ce cahier (21 novembre 2026), le temps calendaire restant est plus court que sept semaines : le binome adopte donc un planning \emph{accelere} jusqu'a la presentation, a preciser avec la date exacte fixee par la professeure.
+\begin{longtable}{@{}p{29mm}p{55mm}p{64mm}@{}}
+\toprule
+\textbf{Periode} & \textbf{Ayman} & \textbf{Reda}\\\midrule
+\endhead
+21--23 novembre & Socle Compose + Kafka + Spark 2 workers + HDFS 2 DN & Contrats v1, schema SQL, data-card, tests RUL\\
+24--27 novembre & Producer et archive Parquet checkpoint ; preuve 20\,631 lignes & Silver, KPI Spark SQL, baseline et 3 modeles\\
+28--30 novembre & Inference ML Spark + upsert SQL sur modele test & Grille GBT, selection/refit, modele v001, evaluation officielle\\
+1--3 decembre & Tests reprise, Kafka offsets, verification Spark cluster & Dashboard Streamlit, KPI en base, vues et latence\\
+4--6 decembre & Reproduction sur second poste, correction finale, runbook & Reproduction, rapport \(\le20\) pages, video (travail commun)\\
+Semaine du 7 dec. & Presentation et demonstration de son domaine & Presentation et demonstration de son domaine\\
+\bottomrule
+\end{longtable}
+\textbf{Point d'integration minimal chaque jour de fusion :} (1) pull de \code{main}, (2) schema de message, (3) chemins HDFS, (4) version de modele, (5) DDL SQL, (6) commandes de demonstration, (7) responsables du prochain test. Un changement non teste ne passe pas en \code{main}.
+
+\section{Risques, limites et plans de contingence}
+\begin{longtable}{@{}p{40mm}p{50mm}p{59mm}@{}}
+\toprule
+\textbf{Risque} & \textbf{Impact} & \textbf{Prevention / repli autorise}\\\midrule
+\endhead
+Manque de RAM sur un laptop & OOM Spark/Kafka/Hadoop & RAM 16--24 Go, un job ML a la fois, 1 core par worker, mini smoke avant replay complet ; ne jamais supprimer les 2 workers\\
+Incompatibilite Spark/Hadoop/Kafka & Jobs non demarrables & Images testees + digests, connecteur \code{3.5.3} Scala \code{2.12}, manifest runtime partage\\
+Modele indisponible au boot & Echec hot stream & Demarrer inference apres training, erreur explicite, pas de predictions factices\\
+Mauvaise cible test NASA & Metriques invalides & Test T06 officiel, pas de \code{max(test_cycle)-cycle}\\
+Fuite entre moteurs & Validation trop optimiste & Split \emph{engine-level}, grille fixee, test NASA reserve\\
+Replays et doublons & Historique et SQL biaises & Bronze append + Silver dedup + UPSERT par run/event/version\\
+Volumes HDFS recrees & Perte checkpoints et modeles & Volumes nommes distincts, test restart, ne pas utiliser \code{down -v} en scenario de reprise\\
+Retard de livraison & Fonctionnalites inachevees & Priorite au chemin obligatoire ; UI est bonus, ne sacrifier ni cluster, ni ML 3 techniques, ni reprise\\
+Assistant IA change l'architecture & Interfaces incompatibles & ADR/contrats geles, branches exclusives, revue croisee, tests contracts\\
+Git attribution mal reconnue & Contribution non visible & Emails GitHub associes, commits substantifs des deux, PR non squash par defaut\\
+\bottomrule
+\end{longtable}
+\begin{successbox}
+\textbf{Regle de priorite :} si le temps manque, livrer d'abord toutes les exigences obligatoires de la fiche : cluster Spark et HDFS avec deux noeuds travailleurs, Kafka, stockage froid, SQL, trois Spark ML + tuning + evaluation, streaming du modele, base, checkpoints/reprise, README et contributions. Le dashboard Streamlit est un bonus utile, mais ne remplace jamais une exigence obligatoire.
+\end{successbox}
+
+\section{Rapport final et video : plan contraint}
+\subsection{Rapport final de 15--20 pages (distinct du present cahier)}
+\begin{tabularx}{\linewidth}{@{}p{17mm}Y@{}}
+\toprule
+\textbf{Pages cible} & \textbf{Contenu}\\\midrule
+1--2 & Couverture, contexte, probleme industriel, objectifs RUL\\
+3--4 & Dataset NASA FD001, provenance, schema, exemples, qualite et cible\\
+5--7 & Architecture, services Docker, deux workers Spark, deux DataNodes, HDFS rep2, commandes\\
+8--9 & Ingestion Kafka, stockage HDFS, KPI Spark SQL et interpretation\\
+10--13 & Spark ML : split, leakage, baseline, trois techniques, tuning, resultats reel et limites\\
+14--16 & Structured Streaming hot, model sauvegarde, SQL, dashboard, latence et reprise\\
+17--18 & Contributions d'Ayman et Reda, tests croises, difficultes et solutions\\
+19--20 & Conclusion, limites et references (sans depasser 20 pages)\\
+\bottomrule
+\end{tabularx}
+Le tableau des \emph{taches effectivement realisees} doit suivre la demande de la page 3 de la fiche et \textbf{ne pas inventer de contributions non effectuees}. La fiche affiche quatre lignes par defaut ; le rapport adapte ce tableau aux deux auteurs du binome, avec developpements, configurations, analyses, verifications et documentation pour chacun.
+
+\subsection{Storyboard de video : 10 minutes}
+\begin{tabularx}{\linewidth}{@{}p{26mm}Yp{27mm}@{}}
+\toprule
+\textbf{Temps} & \textbf{Demonstration} & \textbf{Presentateur}\\\midrule
+00:00--01:00 & Probleme metier, dataset NASA, RUL en cycles & Reda\\
+01:00--02:30 & Architecture, Docker, Spark master + 2 workers, HDFS NN + 2 DN & Ayman\\
+02:30--03:45 & Producer Kafka, messages, archives Parquet HDFS & Ayman\\
+03:45--05:45 & Spark SQL, 3 modeles, tuning GBT, MAE/RMSE test officiels & Reda\\
+05:45--07:30 & Replay test, Spark inference, PostgreSQL predictions & Ayman\\
+07:30--08:30 & Dashboard Streamlit et interpretation etats/latence & Reda\\
+08:30--09:30 & Reprise jobs streaming, checkpoints, preuves cluster & Ayman\\
+09:30--10:00 & Contributions GitHub, limites et conclusion & Les deux\\
+\bottomrule
+\end{tabularx}
+
+\section{Regles de gouvernance pour les futurs assistants IA}
+Ce cahier est le \textbf{seul socle technique commun} a fournir plus tard aux assistants. Il ne leur demande pas encore de coder : il servira aux deux \emph{guides individuels} lorsque les auteurs le solliciteront. Les regles ci-dessous permettent d'eviter la divergence des deux implémentations.
+\begin{enumerate}
+\item Ayman et Reda travaillent \textbf{uniquement dans leurs repertoires attribues}, hors PR de contrat revue ensemble.
+\item L'architecture est Spark + HDFS + Kafka + PostgreSQL + Streamlit ; pas de changement spontane vers InfluxDB, Grafana, Airflow, Flink, NiFi, XGBoost, scikit-learn ou stockage local a la place de HDFS.
+\item Les obligations académiques sont prioritaires face aux optimisations proposees par un assistant.
+\item Tout travail est teste en petites etapes ; une sortie terminal ou un screenshot \emph{simule} n'est jamais presente comme verification.
+\item Aucune mesure de performance, aucun score RMSE, aucun nombre de predictions, aucune reprise ne peut etre annonce comme reussi sans execution reelle.
+\item Les chemins HDFS, noms SQL, topics, champs et seuils sont bloques par ce cahier et les contrats versionnes.
+\item Tout assistant produit des commit messages proposes, mais chaque etudiant verifie, valide et pousse personnellement ses contributions depuis sa machine et son compte Git.
+\item Le lancement complet doit reussir chez les deux, avec la meme sequence et les memes scripts du depot ; seuls \code{.env} et ressources locales peuvent differer.
+\item En cas de blocage, documenter \emph{exactement} l'erreur, proposer la correction la plus petite et demander une PR contractuelle si une interface doit changer.
+\item Ne pas generer les guides individuels tant qu'une demande distincte n'a pas ete emise par le binome.
+\end{enumerate}
+
+\section{Points ouverts, criteres de gel et signatures}
+\begin{tabularx}{\linewidth}{@{}p{13mm}Yp{24mm}@{}}
+\toprule
+\textbf{ID} & \textbf{Point restant a verifier} & \textbf{Statut}\\\midrule
+O01 & Validation explicite du \emph{sujet} maintenance predictive et du \emph{dataset} FD001 par la professeure & \pending\\
+O02 & Tags/digests des images et bibliotheques Python apres build reel sur un poste & \pending\\
+O03 & Parametres exacts Docker Desktop (RAM/CPU) et ports libres sur les deux laptops & \pending\\
+O04 & Conditions/licence et URL de la copie FD001 effectivement telechargee + SHA-256 & \pending\\
+O05 & Date/heure precises de la presentation pendant la semaine du 7 decembre 2026 & \pending\\
+O06 & Resultats reels des 3 algorithmes, tuning, official test et latence & \pending\\
+\bottomrule
+\end{tabularx}
+\begin{notebox}
+\textbf{Ce qui est gele des maintenant :} sujet propose, cible RUL plafonnee a 125, dataset FD001, schema evenement V1, Kafka topic, 25 features, trois modeles Spark ML, tuning GBT, tables SQL, topology de cluster, chemins HDFS, deux jobs streaming, proprietaires des repertoires et workflow Git. Les points ouverts ci-dessus sont des \emph{verifications operationnelles}, pas une autorisation pour changer les interfaces sans accord.
+\end{notebox}
+\vspace{7mm}
+\begin{tabularx}{\linewidth}{@{}Y Y@{}}
+\toprule
+\textbf{Ayman (Claude Code)} & \textbf{Reda (Codex)}\\\midrule
+\rule{0pt}{16mm}Accord architecture : \hrulefill & \rule{0pt}{16mm}Accord architecture : \hrulefill\\
+Date : \hrulefill & Date : \hrulefill\\
+\bottomrule
+\end{tabularx}
+
+\clearpage
+\section*{References de cadrage et de verification}
+\addcontentsline{toc}{section}{References de cadrage et de verification}
+\begin{enumerate}[leftmargin=20pt]
+\item \docref{} Document fourni par les etudiants, pages 1--3, contraintes de topologie, ML, planning et livrables.
+\item NASA Prognostics Data Repository, turbofan engine degradation simulation (C-MAPSS) : \url{https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/}.\newline L'URL effective de telechargement est a confirmer avec le fichier source utilise.
+\item Apache Spark Docker images, tags versionnes : \url{https://github.com/apache/spark-docker/blob/master/versions.json}.
+\item Apache Hadoop, image officielle 3.3.6 : \url{https://hub.docker.com/r/apache/hadoop/tags}.
+\item Apache Kafka 3.8 Docker / KRaft : \url{https://kafka.apache.org/38/getting-started/docker/}.
+\item Apache Spark Structured Streaming et ML Pipeline : \url{https://spark.apache.org/docs/3.5.3/structured-streaming-programming-guide.html} et \url{https://spark.apache.org/docs/3.5.3/ml-pipeline.html}.
+\item Projet de comparaison (inspiration uniquement, pas code copie) : \url{https://github.com/Hdchipeo/predictive-maintenance}.
+\end{enumerate}
+
+\end{document}

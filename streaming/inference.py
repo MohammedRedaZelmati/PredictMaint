@@ -25,7 +25,7 @@ from pyspark.ml import PipelineModel
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
-from streaming.events import parse_kafka
+from streaming.events import NUMERIC_FIELDS, parse_kafka
 from streaming.model_contract import (
     HDFS, ModelContractError, check_manifest, load_feature_columns, manifest_uri, model_uri,
 )
@@ -55,16 +55,41 @@ def load_model(spark: SparkSession, version: str) -> tuple[PipelineModel, list[s
     return model, features
 
 
+class ConflictingEventError(ValueError):
+    """Same (run_id, event_id) with different measurements: V1 duplicate policy says fail."""
+
+
+def check_no_conflicting_duplicates(batch: DataFrame) -> None:
+    """Raise if one (run_id, event_id) carries two different measurement sets in this batch."""
+    fingerprint = F.sha2(F.to_json(F.struct(*[F.col(name).cast("double") for name in NUMERIC_FIELDS])), 256)
+    conflicts = (
+        batch.groupBy("run_id", "event_id")
+        .agg(F.countDistinct(fingerprint).alias("versions"))
+        .where(F.col("versions") > 1)
+        .select("event_id")
+        .limit(5)
+        .collect()
+    )
+    if conflicts:
+        raise ConflictingEventError(
+            f"conflicting measurements for {[row.event_id for row in conflicts]}: micro-batch refused"
+        )
+
+
 def score(batch: DataFrame, model: PipelineModel, features: list[str], version: str) -> DataFrame:
     """Valid events -> rows of the `predictions` table (distributed, no driver collect)."""
+    # V1 duplicate policy: identical replays are deduplicated, conflicting ones fail the batch
+    # (dropDuplicates alone would keep an arbitrary one of the two measurement sets).
+    check_no_conflicting_duplicates(batch)
     # Same event replayed twice inside one micro-batch would make a single UPSERT touch a row twice.
     batch = batch.dropDuplicates(["run_id", "event_id"])
     inputs = batch.withColumns({name: F.col(name).cast("double") for name in features})  # 25 doubles
     scored = model.transform(inputs)
     prediction = F.col("prediction").cast("double")
-    # A missing/NaN prediction stays NULL (never clamped to 0): the writer then refuses the
-    # row and the micro-batch fails, instead of inventing a CRITICAL engine.
-    rul = F.when(prediction.isNull() | F.isnan(prediction), F.lit(None).cast("double")).otherwise(
+    # A missing, NaN or infinite prediction stays NULL (never clamped to 0 or 125): the writer
+    # then refuses the row and the micro-batch fails, instead of inventing a health status.
+    unusable = prediction.isNull() | F.isnan(prediction) | (F.abs(prediction) == F.lit(float("inf")))
+    rul = F.when(unusable, F.lit(None).cast("double")).otherwise(
         F.greatest(F.lit(0.0), F.least(F.lit(RUL_CAP), prediction))
     )
     return (
@@ -85,9 +110,13 @@ def score(batch: DataFrame, model: PipelineModel, features: list[str], version: 
 
 def make_batch_writer(model: PipelineModel, features: list[str], version: str, db_params: dict):
     def write_batch(batch: DataFrame, batch_id: int) -> None:
-        predictions = score(batch, model, features, version)
-        # Executors write their own partitions; any exception fails this micro-batch.
-        predictions.foreachPartition(lambda rows: write_rows(rows, db_params))
+        batch = batch.persist()  # read once for the conflict check, once for scoring
+        try:
+            predictions = score(batch, model, features, version)
+            # Executors write their own partitions; any exception fails this micro-batch.
+            predictions.foreachPartition(lambda rows: write_rows(rows, db_params))
+        finally:
+            batch.unpersist()
         print(f"[inference_v1] batch {batch_id} written to predictions", flush=True)
 
     return write_batch

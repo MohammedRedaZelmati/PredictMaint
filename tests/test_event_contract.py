@@ -80,7 +80,9 @@ class EventContractTests(unittest.TestCase):
 
     def test_bad_types_and_timestamps_are_rejected(self):
         for field, value in (("cycle", 0), ("engine_id", "1"), ("run_id", "bad"),
-                             ("event_ts", "2026-11-21T10:00:00+01:00")):
+                             ("event_ts", "2026-11-21T10:00:00+01:00"),
+                             ("event_ts", "not-a-dateZ"),
+                             ("published_at", "not-a-dateZ")):
             event = sample_event()
             event[field] = value
             with self.assertRaises(Exception):
@@ -92,7 +94,10 @@ class EventContractTests(unittest.TestCase):
         self.assertEqual(FEATURE_CONTRACT, {"schema_version": 1, "features": features})
         canonical = json.dumps(features, ensure_ascii=False, separators=(",", ":"))
         digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-        self.assertEqual(len(digest), 64)
+        self.assertEqual(
+            digest,
+            "05ad82b0be2cdb6ad78a1216b2c4ddfe80f29c58f5082039ec0f273d2c638d6f",
+        )
         print(f"feature_schema_hash={digest}")
 
 

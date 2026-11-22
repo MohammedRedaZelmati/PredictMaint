@@ -21,10 +21,13 @@ st.caption("RUL estimé en cycles · données PostgreSQL · actualisation toutes
 @st.fragment(run_every="5s")
 def live_dashboard():
     try:
-        runs = list_test_runs()
+        render_dashboard()
     except (psycopg2.Error, KeyError) as error:
         st.error(f"Base de données indisponible : {error}")
-        return
+
+
+def render_dashboard():
+    runs = list_test_runs()
     if not runs:
         st.info("En attente d'un replay test et de prédictions SQL.")
         return
@@ -71,7 +74,30 @@ def live_dashboard():
     st.subheader("Indicateurs batch")
     kpis = latest_kpis()
     if kpis:
-        st.dataframe(pd.DataFrame(kpis), hide_index=True, use_container_width=True)
+        kpi_frame = pd.DataFrame(kpis)
+
+        def value_for(metric, dimension):
+            matches = kpi_frame[
+                (kpi_frame["metric_name"] == metric)
+                & (kpi_frame["dimension_value"] == dimension)
+            ]
+            return float(matches.iloc[0]["metric_value"]) if not matches.empty else None
+
+        def total_for(metric):
+            matches = kpi_frame[kpi_frame["metric_name"] == metric]
+            return float(matches["metric_value"].sum()) if not matches.empty else None
+
+        train_count = value_for("measurements", "train")
+        test_count = value_for("measurements", "test")
+        duplicates = total_for("bronze_duplicate_rows")
+        missing_pct = value_for("missing_value_pct", "all")
+        tiles = st.columns(4)
+        tiles[0].metric("Cycles train", f"{train_count:,.0f}" if train_count is not None else "—")
+        tiles[1].metric("Cycles test", f"{test_count:,.0f}" if test_count is not None else "—")
+        tiles[2].metric("Doublons Bronze", f"{duplicates:,.0f}" if duplicates is not None else "—")
+        tiles[3].metric("Manquantes après validation", f"{missing_pct:.2f} %" if missing_pct is not None else "—")
+        with st.expander("Tous les indicateurs batch"):
+            st.dataframe(kpi_frame, hide_index=True, use_container_width=True)
     else:
         st.info("En attente des KPI batch.")
 

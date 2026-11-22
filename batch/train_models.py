@@ -97,7 +97,6 @@ def write_hdfs_text(spark, uri, content, overwrite=False):
     fs = path.getFileSystem(spark.sparkContext._jsc.hadoopConfiguration())
     stream = fs.create(path, overwrite)
     try:
-        # py4j returns java.lang.String as a Python str (no getBytes); a bytearray maps to byte[].
         stream.write(bytearray(content.encode("utf-8")))
     finally:
         stream.close()
