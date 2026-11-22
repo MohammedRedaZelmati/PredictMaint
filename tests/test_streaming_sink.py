@@ -38,7 +38,7 @@ def test_clamp_and_health_thresholds(prediction, rul, status):
     assert pw.health_status(pw.clamp_rul(prediction)) == status
 
 
-@pytest.mark.parametrize("bad", [None, float("nan")])
+@pytest.mark.parametrize("bad", [None, float("nan"), float("inf"), float("-inf")])
 def test_missing_prediction_is_never_replaced(bad):
     with pytest.raises(ValueError):
         pw.clamp_rul(bad)
@@ -189,9 +189,11 @@ def _spark_usable() -> bool:
     if importlib.util.find_spec("pyspark") is None:
         return False
     java_home = os.environ.get("JAVA_HOME", "")
-    # Spark 3.5 supports Java 8/11/17 only; the image provides 17.
-    return any(v in java_home for v in ("17", "11", "1.8")) or (not java_home and shutil.which("java") and
-                                                               os.path.exists("/opt/spark"))
+    # Spark 3.5 supports Java 8/11/17 only; the Spark image (with /opt/spark) provides 17
+    # under JAVA_HOME=/opt/java/openjdk, whose path does not show the version.
+    if any(v in java_home for v in ("17", "11", "1.8")):
+        return True
+    return bool(shutil.which("java")) and os.path.exists("/opt/spark")
 
 
 requires_spark = pytest.mark.skipif(not _spark_usable(), reason="pyspark + Java 8/11/17 not available here")
@@ -312,6 +314,61 @@ def test_score_clamps_and_dedups_with_a_synthetic_pipeline(spark):
     assert all(0.0 <= r.predicted_rul_cycles <= 125.0 for r in rows)
     assert all(r.health_status == pw.health_status(r.predicted_rul_cycles) for r in rows)
     assert list(rows[0].asDict()) == list(pw.PREDICTION_COLUMNS)
+
+
+class _ConstantModel:
+    """Stand-in for a PipelineModel whose prediction is a fixed (possibly unusable) value."""
+
+    def __init__(self, value):
+        self.value = value
+
+    def transform(self, frame):
+        from pyspark.sql import functions as F
+
+        return frame.withColumn("prediction", F.lit(self.value).cast("double"))
+
+
+def _valid_batch(spark, events):
+    from streaming.events import parse_kafka
+
+    batch = parse_kafka(kafka_rows(spark, [("fd001:test:1", e) for e in events])).where("is_valid")
+    return batch.drop("is_valid", "raw_value")
+
+
+@requires_spark
+def test_score_refuses_conflicting_duplicates(spark):
+    """Review on #8: same (run_id, event_id) with different measurements must fail the batch."""
+    from streaming.inference import ConflictingEventError, score
+
+    first, second = synthetic_event(cycle=3), synthetic_event(cycle=3)
+    second["sensor_07"] += 1.0
+    with pytest.raises(ConflictingEventError, match="fd001:test:1:3"):
+        score(_valid_batch(spark, [first, second]), _ConstantModel(60.0), list(EXPECTED_FEATURES), "v001")
+
+
+@requires_spark
+def test_score_keeps_one_row_for_identical_replays(spark):
+    from streaming.inference import score
+
+    event = synthetic_event(cycle=3)
+    replay = dict(event, published_at="2026-11-21T12:00:09.000Z")  # same measurements, later send
+    rows = score(_valid_batch(spark, [event, replay]), _ConstantModel(60.0), list(EXPECTED_FEATURES),
+                 "v001").collect()
+    assert [(r.event_id, r.predicted_rul_cycles, r.health_status) for r in rows] == [
+        ("fd001:test:1:3", 60.0, "HEALTHY")]
+
+
+@requires_spark
+@pytest.mark.parametrize("value", [float("inf"), float("-inf"), float("nan"), None])
+def test_score_never_turns_an_unusable_prediction_into_a_status(spark, value):
+    """Review on #8: +/-inf must not be clamped to 125/0; the writer then fails the batch."""
+    from streaming.inference import score
+
+    rows = score(_valid_batch(spark, [synthetic_event(cycle=4)]), _ConstantModel(value),
+                 list(EXPECTED_FEATURES), "v001").collect()
+    assert (rows[0].predicted_rul_cycles, rows[0].health_status) == (None, None)
+    with pytest.raises(ValueError, match="no value for"):
+        pw.row_params(rows[0])
 
 
 def test_schema_matches_reda_contract_when_present():
