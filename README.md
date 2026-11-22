@@ -30,9 +30,10 @@ Dans PowerShell, mesurer la RAM avant de démarrer :
 Get-CimInstance Win32_OperatingSystem | Select-Object @{N='AvailableGiB';E={[math]::Round($_.FreePhysicalMemory/1MB,2)}},@{N='TotalGiB';E={[math]::Round($_.TotalVisibleMemorySize/1MB,2)}}
 Copy-Item .env.example .env
 docker compose config --quiet
+docker compose build
 ```
 
-La commande `Copy-Item` est nécessaire seulement au premier lancement. Ne pas committer `.env` ni les données.
+La commande `Copy-Item` est nécessaire seulement au premier lancement. Reconstruire l'image Spark après les changements de `infra/Dockerfile.spark` pour disposer de `spark-submit` sur le PATH et des tests PySpark dans le conteneur. Ne pas committer `.env` ni les données.
 
 ## Démarrage reproductible
 
@@ -91,6 +92,6 @@ Pour les vérifications de reprise, redémarrer les services avec les mêmes vol
 
 ## Résultats et limites
 
-Ayman a rapporté sur son cluster deux workers actifs, HDFS répliqué à 2, Silver 20 631 lignes, 164 KPI après revue, un modèle GBT sélectionné parmi LR/RF/8 configurations GBT, RMSE de validation 22,37 sur 60 snapshots et RMSE officiel 17,23 sur 100 moteurs test. Le replay test complet a produit 13 096 prédictions SQL. Les preuves disponibles, leur machine d'origine et les limites figurent dans [la matrice de validation](docs/validation-matrix.md). La régression linéaire non standardisée a divergé ; ses scores ne sont pas présentés comme une référence utile.
+Ayman a rapporté sur son cluster deux workers actifs, HDFS répliqué à 2, Silver 20 631 lignes, 164 KPI après revue, un modèle GBT sélectionné parmi LR/RF/8 configurations GBT, RMSE de validation 22,37 sur 60 snapshots et RMSE officiel 17,23 sur 100 moteurs test. Le replay test complet a produit 13 096 prédictions SQL. Les exports et journaux sont inventoriés dans [les preuves du run](docs/evidence/README.md) ; leur machine d'origine et leurs limites figurent dans [la matrice de validation](docs/validation-matrix.md). La régression linéaire non standardisée a divergé ; ses scores ne sont pas présentés comme une référence utile.
 
 La démonstration de ~10 minutes est préparée dans [le conducteur vidéo](docs/video-script.md). Le rapport et les contributions sont dans `rapport/` et [le tableau des contributions](docs/contributions.md). La vidéo enregistrée et la validation du sujet par l'enseignante restent des preuves à joindre lorsqu'elles seront disponibles.

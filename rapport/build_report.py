@@ -5,6 +5,10 @@ The numerical results reported from the distributed cluster belong to Ayman's
 2026-11-21/22 live run; this script does not benchmark or train anything.
 """
 
+import csv
+import html
+import json
+import re
 from pathlib import Path
 
 from reportlab.graphics.shapes import Drawing, Line, Polygon, Rect, String
@@ -21,6 +25,18 @@ from reportlab.platypus import (
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "rapport" / "SmartPredict_Rapport.pdf"
+COMPARISON_PATH = ROOT / "docs" / "evidence" / "model_v001" / "comparison.csv"
+with COMPARISON_PATH.open(encoding="utf-8", newline="") as comparison_file:
+    COMPARISON = list(csv.DictReader(comparison_file))
+B0 = next(row for row in COMPARISON if row["candidate"] == "B0")
+LR = next(row for row in COMPARISON if row["candidate"] == "M1")
+RF = next(row for row in COMPARISON if row["candidate"] == "M2")
+GBT = sorted((row for row in COMPARISON if row["candidate"] == "M3"),
+             key=lambda row: float(row["rmse"]))
+
+
+def decimal(value, places=2):
+    return f"{float(value):.{places}f}".replace(".", ",")
 NAVY = colors.HexColor("#13243A")
 BLUE = colors.HexColor("#2563A6")
 TEAL = colors.HexColor("#0D766E")
@@ -68,7 +84,13 @@ styles.add(ParagraphStyle(
 
 
 def para(text, style="BodyX"):
-    return Paragraph(text, styles[style])
+    # ReportLab treats <split> as markup. Escape code spans before parsing, and render
+    # them in Courier instead of leaving Markdown backticks visible in the PDF.
+    def code_span(match):
+        escaped = html.escape(match.group(1), quote=False)
+        return f'<font name="Courier" color="#24527A">{escaped}</font>'
+
+    return Paragraph(re.sub(r"`([^`]+)`", code_span, text), styles[style])
 
 
 def section(title):
@@ -241,7 +263,7 @@ story += [section("2. Cas métier, données et qualité"),
                "`docs/data-card.md`). Onze RUL officiels test dépassent 125 et sont plafonnés pour l'évaluation."),
           sub("Contrat et absence de fuite"),
           bullet("L'événement Kafka V1 a 33 champs, dont 24 mesures ; il ne contient jamais de vrai RUL, de cycle de panne ou de maximum futur."),
-          bullet("La clé Kafka est `fd001:<split>:<moteur>` ; l'identifiant d'événement inclut aussi le cycle. `event_ts` est simulé en UTC, `published_at` est l'heure réelle de publication."),
+          bullet("La clé Kafka est `fd001:<source_split>:<engine_id>` ; l'identifiant d'événement inclut aussi le cycle. `event_ts` est simulé en UTC, `published_at` est l'heure réelle de publication."),
           bullet("Le RUL train vaut `min(125, dernier_cycle_train - cycle)` ; le RUL test terminal vient uniquement de `RUL_FD001.txt`, jamais de la longueur observée du test."),
           bullet("Les 25 features sont `cycle`, 3 réglages et 21 capteurs dans un ordre fixé par `contracts/feature_columns.json` ; aucun identifiant, timestamp, label ou statistique future n'entre dans le modèle."),
           sub("Qualité Bronze et Silver"),
@@ -302,11 +324,27 @@ story += [section("5. Modélisation et évaluation"),
                "ni dans le tuning."),
           sub("Candidats Spark ML"),
           table(["Candidat", "Rôle et constat disponible"], [
-              ("B0 - médiane", "Référence simple ajustée sur les moteurs fit ; score numérique non archivé dans Git."),
-              ("M1 - LinearRegression", "Technique testée, mais l'optimisation LBFGS a divergé sur les features non standardisées (RMSE de validation autour de 1,0e7 dans le journal d'Ayman). Ce n'est pas une référence exploitable."),
-              ("M2 - RandomForestRegressor", "Technique testée ; score exact présent dans le `comparison.csv` HDFS, non archivé dans Git."),
-              ("M3 - GBTRegressor", "Huit réglages séquentiels : profondeur 3/5, itérations 30/60, pas 0,05/0,10. Sélection rapportée : profondeur 5, 60 itérations, pas 0,05."),
+              ("B0 - médiane", f"Référence simple ajustée sur les moteurs fit : RMSE {decimal(B0['rmse'])}, MAE {decimal(B0['mae'])}."),
+              ("M1 - LinearRegression", f"Optimisation LBFGS divergente sur les features non standardisées : RMSE {decimal(LR['rmse'], 0)}. Ce n'est pas une référence exploitable."),
+              ("M2 - RandomForestRegressor", f"Technique testée : RMSE {decimal(RF['rmse'])}, MAE {decimal(RF['mae'])}."),
+              ("M3 - GBTRegressor", f"Huit réglages séquentiels ; RMSE de {decimal(GBT[0]['rmse'])} à {decimal(GBT[-1]['rmse'])}. Sélection : profondeur 5, 60 itérations, pas 0,05."),
           ], [140, 358]),
+          sub("Huit réglages GBT - validation groupée (cycles)"),
+          table(["Prof.", "Itér.", "Pas", "RMSE", "MAE"], [
+              (json.loads(row["params"])["maxDepth"],
+               json.loads(row["params"])["maxIter"],
+               decimal(json.loads(row["params"])["stepSize"]),
+               decimal(row["rmse"]), decimal(row["mae"]))
+              for row in sorted(GBT, key=lambda item: (
+                  json.loads(item["params"])["maxDepth"],
+                  json.loads(item["params"])["maxIter"],
+                  json.loads(item["params"])["stepSize"],
+              ))
+          ], [75, 75, 75, 135, 138]),
+          para(f"La meilleure RMSE exacte est {decimal(GBT[0]['rmse'], 3)} contre "
+               f"{decimal(GBT[1]['rmse'], 3)} pour le second réglage : l'écart est "
+               f"{decimal(float(GBT[1]['rmse']) - float(GBT[0]['rmse']), 3)} cycle. "
+               "La victoire est donc étroite et ne doit pas être surinterprétée."),
           Spacer(1, 10),
           table(["Évaluation", "RMSE", "MAE", "Échantillon"], [
               ("Validation groupée", "22,37", "17,14", "60 snapshots / 20 moteurs"),
@@ -318,12 +356,12 @@ story += [section("5. Modélisation et évaluation"),
                "qu'il produit une prédiction. Le manifeste contient le hash canonique des 25 features, "
                "l'algorithme, les paramètres, le plafond, la graine et le hash du train. L'évaluation "
                "officielle compare les 100 derniers cycles observés aux labels `RUL_FD001.txt` plafonnés ; "
-               "`predictions_test.csv` et `metrics.json` sont dans HDFS."),
-          para("<b>Limite de reproductibilité.</b> Les scores détaillés B0/RF et des huit GBT ne sont pas "
-               "dans ce dépôt ; le rapport ne les invente pas. Ils doivent être exportés depuis "
-               "`/smartpredict/models/metadata/v001/comparison.csv` pour une table complète de comparaison. "
-               "La divergence de LR mérite un essai futur avec StandardScaler, sans réécrire le modèle "
-               "v001 déjà gelé."), PageBreak()]
+               "`predictions_test.csv` et `metrics.json` sont dans HDFS et leurs exports sont archivés "
+               "dans `docs/evidence/model_v001/`."),
+          para("<b>Traçabilité.</b> Les onze scores et paramètres sont archivés dans "
+               "`docs/evidence/model_v001/comparison.csv`, exporté par Ayman depuis HDFS ; le tableau "
+               "ci-dessus est construit à partir de ce fichier. La divergence de LR mérite un essai "
+               "futur avec StandardScaler, sans réécrire le modèle v001 déjà gelé."), PageBreak()]
 
 story += [section("6. Streaming, SQL et restitution"),
           para("L'inférence lit Kafka avec Structured Streaming et vérifie les 33 champs du contrat, "
@@ -350,13 +388,15 @@ story += [section("6. Streaming, SQL et restitution"),
                "p95 31,6 s et maximum 31,9 s. Ce n'est pas une mesure en régime permanent. Un conflit "
                "arrivant dans un micro-lot ultérieur peut encore réécrire la même clé SQL, car la table "
                "ne stocke pas les mesures ; le contrôle Bronze/Silver le détecte sur l'historique complet."),
+          para("Les journaux d'archive et d'inférence, les exports du modèle et la capture du dashboard "
+               "sont conservés dans `docs/evidence/` ; leur provenance est décrite dans son README."),
           PageBreak()]
 
 story += [section("7. Vérification, limites et reprise"),
           table(["Niveau de preuve", "Vérification"], [
               ("Reda, local", "Hashes et structure FD001 vérifiés ; après fusion #8 : 82 tests réussis, 30 tests Spark ignorés faute d'environnement local ; `docker compose config --quiet` valide."),
-              ("Ayman, cluster", "D'après `docs/runtime-lock.md` et ses revues : deux workers, deux DataNodes, réplication 2 ; 110 tests réussis / 2 ignorés dans l'image Spark lors de la correction #8 ; essais froid, chaud, reprise et interface."),
-              ("Preuves non jointes", "Journaux bruts de jobs et captures, table complète `comparison.csv`, preuve de validation du sujet par l'enseignante et vidéo Google Drive."),
+              ("Ayman, cluster", "D'après `docs/runtime-lock.md` et `docs/evidence/` : deux workers, deux DataNodes, réplication 2 ; 112 tests réussis / 0 ignoré dans l'image Spark ; essais froid, chaud, reprise et interface."),
+              ("Preuves à joindre", "Validation du sujet par l'enseignante et vidéo enregistrée avec lien Google Drive."),
           ], [130, 368]),
           Spacer(1, 12),
           sub("Difficultés et corrections constatées"),
@@ -387,19 +427,21 @@ story += [section("8. Contributions et livrables"),
           sub("État de remise"),
           bullet("Code et contrats fusionnés dans `main` ; README reproductible, matrice de validation et conducteur vidéo dans la branche d'intégration, en attente de revue commune."),
           bullet("Le PDF est limité à moins de 20 pages ; son générateur `rapport/build_report.py` reste modifiable et les chiffres sont liés aux preuves citées."),
+          bullet("Les exports du modèle, les journaux et la capture d'interface sont archivés dans `docs/evidence/`, avec provenance par fichier."),
           bullet("La vidéo enregistrée d'environ 10 minutes et son lien Google Drive restent à produire sur la machine qui exécute la démonstration réelle."),
           sub("Références et traçabilité"),
           para("[1] Fiche enseignante 'Pipeline Big Data de bout en bout', version 2026, fournie dans "
                "l'archive locale du projet. [2] `docs/architecture_smartpredict.tex` et "
                "`docs/guides/00_CONTRATS_COMMUNS.md`. [3] `docs/data-card.md` pour la provenance et les "
                "hashes FD001. [4] `docs/runtime-lock.md` et `docs/validation-matrix.md` pour les essais "
-               "attribués. [5] Revues GitHub du dépôt PredictMaint, PR #1 à #8, 21-22 novembre 2026. "
-               "[6] Miroir PHM Society de la collection NASA : https://data.phmsociety.org/nasa/."),
+               "attribués. [5] `docs/evidence/README.md` et exports du run distribué. [6] Revues GitHub "
+               "du dépôt PredictMaint, PR #1 à #9, 21-22 novembre 2026. [7] Miroir PHM Society de la "
+               "collection NASA : https://data.phmsociety.org/nasa/."),
           Spacer(1, 12),
           para("<b>Conclusion.</b> Le pipeline démontre la continuité Kafka - HDFS - Spark SQL/ML - "
                "PostgreSQL - Streamlit, avec reprise par checkpoint et contrat de features vérifié. "
-               "La remise finale dépend encore de la conservation des preuves brutes, de la revue "
-               "commune du présent lot et de l'enregistrement de la vidéo demandée.")]
+               "La remise finale dépend encore de la validation du sujet, de la revue commune du "
+               "présent lot et de l'enregistrement de la vidéo demandée.")]
 
 
 def main():
